@@ -120,7 +120,7 @@ export default function WavePage() {
   if (!pokemon) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <LanguageSwitcher />
+        <LanguageSwitcher className="fixed top-4 right-4 z-50" />
         <div className="text-center">
           <p className="text-red-600 mb-4">{t('wave.notFound')}</p>
           <button
@@ -136,7 +136,7 @@ export default function WavePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher />
+      <LanguageSwitcher className="fixed top-4 right-4 z-50" />
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="mb-6">

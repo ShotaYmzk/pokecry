@@ -6,7 +6,6 @@ import { getRandomPokemon, Pokemon } from '@/lib/pokemon'
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function QuizInputPage() {
   const router = useRouter()
@@ -18,24 +17,25 @@ export default function QuizInputPage() {
   const [showResult, setShowResult] = useState(false)
   const [waveformLoading, setWaveformLoading] = useState(false)
   const [waveformError, setWaveformError] = useState<string | null>(null)
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  
   const inputRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
+  // Initial Load
   useEffect(() => {
     loadNewQuestion()
   }, [])
 
+  // Focus input on new question
   useEffect(() => {
-    // 新しい問題が読み込まれたら入力欄にフォーカス
     if (inputRef.current && !showResult) {
       inputRef.current.focus()
     }
   }, [currentPokemon, showResult])
 
+  // Draw waveform
   useEffect(() => {
-    // 波形を描画
     if (!currentPokemon) return
 
     const drawWaveform = async () => {
@@ -49,44 +49,45 @@ export default function QuizInputPage() {
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
         
         const canvas = canvasRef.current
-        if (!canvas) {
-          setWaveformLoading(false)
-          return
-        }
+        if (!canvas) return
 
         const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          setWaveformLoading(false)
-          return
-        }
+        if (!ctx) return
 
-        const width = canvas.width
-        const height = canvas.height
+        // High DPI rendering
+        const dpr = window.devicePixelRatio || 1
+        const rect = canvas.getBoundingClientRect()
+        canvas.width = rect.width * dpr
+        canvas.height = rect.height * dpr
+        ctx.scale(dpr, dpr)
+
+        const width = rect.width
+        const height = rect.height
         const channelData = audioBuffer.getChannelData(0)
         const dataLength = channelData.length
 
-        // 背景をクリア
-        ctx.fillStyle = '#ffffff'
+        // Clear background
+        ctx.clearRect(0, 0, width, height)
+        ctx.fillStyle = '#F5F5F7' // tailwind background color
         ctx.fillRect(0, 0, width, height)
 
-        // グリッド線を描画
-        ctx.strokeStyle = '#e5e7eb'
+        // Draw grid
+        ctx.strokeStyle = '#E5E5E5'
         ctx.lineWidth = 1
-        const gridLines = 5
-        for (let i = 0; i <= gridLines; i++) {
-          const y = (height / gridLines) * i
-          ctx.beginPath()
-          ctx.moveTo(0, y)
-          ctx.lineTo(width, y)
-          ctx.stroke()
-        }
+        ctx.beginPath()
+        ctx.moveTo(0, height / 2)
+        ctx.lineTo(width, height / 2)
+        ctx.stroke()
 
-        // 波形を描画
-        ctx.strokeStyle = '#3b82f6'
+        // Draw waveform
+        ctx.strokeStyle = '#007AFF' // Apple Blue
         ctx.lineWidth = 2
+        ctx.lineJoin = 'round'
         ctx.beginPath()
 
         const centerY = height / 2
+        // Show roughly 1/4 of seconds if long, or full if short? 
+        // Just show full for now, but optimize sampling
         const samplesPerPixel = Math.floor(dataLength / width)
 
         for (let x = 0; x < width; x++) {
@@ -102,36 +103,27 @@ export default function QuizInputPage() {
             if (value > max) max = value
           }
 
-          const y1 = centerY + min * centerY * 0.8
-          const y2 = centerY + max * centerY * 0.8
+          const y1 = centerY + min * centerY * 0.9
+          const y2 = centerY + max * centerY * 0.9
 
-          if (x === 0) {
-            ctx.moveTo(x, y1)
-          } else {
-            ctx.lineTo(x, y1)
-          }
+          ctx.moveTo(x, y1)
           ctx.lineTo(x, y2)
         }
 
         ctx.stroke()
-
-        // 中央線を描画
-        ctx.strokeStyle = '#9ca3af'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(0, centerY)
-        ctx.lineTo(width, centerY)
-        ctx.stroke()
-
         setWaveformLoading(false)
       } catch (err) {
-        console.error('波形描画エラー:', err)
+        console.error('Waveform error:', err)
         setWaveformError(getTranslation(language, 'quizInput.waveformError'))
         setWaveformLoading(false)
       }
     }
 
-    drawWaveform()
+    // Use RequestAnimationFrame to ensure canvas is ready in DOM
+    requestAnimationFrame(() => {
+        drawWaveform()
+    })
+    
   }, [currentPokemon])
 
   const getPokemonName = (pokemon: Pokemon) => {
@@ -144,11 +136,17 @@ export default function QuizInputPage() {
     setUserAnswer('')
     setIsCorrect(null)
     setShowResult(false)
+    setIsPlaying(false)
     
-    // 音声をリセット
-    if (audioRef.current) {
-      audioRef.current.load()
-    }
+    // Auto play slightly delayed
+    setTimeout(() => playSound(pokemon.soundPath), 500)
+  }
+
+  const playSound = (path: string) => {
+    const audio = new Audio(path)
+    setIsPlaying(true)
+    audio.play()
+    audio.onended = () => setIsPlaying(false)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -159,189 +157,126 @@ export default function QuizInputPage() {
     setIsCorrect(correct)
     setShowResult(true)
 
-    // 不正解の場合、weakListに追加
     if (!correct) {
       addToWeakList(currentPokemon.id)
     }
   }
 
-  const handleNext = () => {
-    loadNewQuestion()
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !showResult) {
-      handleSubmit(e)
-    }
-  }
-
-  if (!currentPokemon) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LanguageSwitcher />
-        {t('quizInput.loading')}
-      </div>
-    )
-  }
+  if (!currentPokemon) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher />
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-            {t('quizInput.title')}
-          </h1>
+    <div className="p-6 md:p-8 min-h-screen md:h-screen md:overflow-hidden flex flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8 flex-1 h-full">
+        
+        {/* Center Column: Visuals */}
+        <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 relative overflow-hidden">
+          <header className="mb-8 text-center absolute top-8 z-10">
+             <span className="inline-block px-3 py-1 bg-purple-50 rounded-full text-xs font-bold text-purple-600 uppercase tracking-wider">Expert Mode</span>
+             <h1 className="text-2xl font-bold mt-2">{t('quizInput.title')}</h1>
+          </header>
 
-          <div className="mb-6">
-            <p className="text-center text-gray-600 mb-4">
-              {t('quizInput.instruction')}
-            </p>
-            <div className="flex justify-center mb-4">
-              <audio 
-                ref={audioRef}
-                key={currentPokemon.id}
-                controls 
-                className="w-full max-w-md"
-                autoPlay={false}
-              >
-                <source src={currentPokemon.soundPath} type="audio/wav" />
-                {t('quiz.audioNotSupported')}
-              </audio>
-            </div>
-            
-            {/* 波形表示 */}
-            <div className="bg-gray-100 rounded-lg p-4">
-              {waveformLoading && (
-                <div className="text-center py-4">
-                  <p className="text-gray-600 text-sm">{t('quizInput.loadingWaveform')}</p>
-                </div>
-              )}
-              {waveformError && (
-                <div className="text-center py-4">
-                  <p className="text-red-600 text-sm">{waveformError}</p>
-                </div>
-              )}
-              {!waveformLoading && !waveformError && (
-                <canvas
-                  ref={canvasRef}
-                  width={800}
-                  height={200}
-                  className="w-full h-auto border border-gray-300 rounded"
-                />
-              )}
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mb-6">
-            <div className="mb-4">
-              <label htmlFor="pokemon-name" className="block text-gray-700 font-semibold mb-2">
-                {t('quizInput.pokemonName')}
-              </label>
-              <input
-                ref={inputRef}
-                id="pokemon-name"
-                type="text"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={showResult}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                placeholder={t('quizInput.placeholder')}
-                autoComplete="off"
-              />
-            </div>
-            {!showResult && (
-              <div className="flex justify-center">
-                <button
-                  type="submit"
-                  disabled={userAnswer.trim() === ''}
-                  className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+          <div className="relative z-10 flex flex-col items-center w-full max-w-2xl">
+            <button
+              onClick={() => playSound(currentPokemon.soundPath)}
+              className={`w-32 h-32 md:w-48 md:h-48 rounded-full bg-background flex items-center justify-center shadow-float transition-all active:scale-95 mb-8 group ${isPlaying ? 'scale-105 ring-4 ring-accent/20' : 'hover:scale-105'}`}
+            >
+              <div className={`w-24 h-24 md:w-36 md:h-36 rounded-full bg-white flex items-center justify-center ${isPlaying ? 'animate-pulse' : ''}`}>
+                 <svg 
+                  className={`w-10 h-10 md:w-16 md:h-16 text-accent transition-transform ${isPlaying ? 'scale-110' : 'group-hover:scale-110'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
                 >
-                  {t('quizInput.submit')}
-                </button>
+                   <path d="M8 5v14l11-7z" />
+                </svg>
               </div>
-            )}
-          </form>
-
-          {showResult && (
-            <div className="mb-6">
-              {isCorrect ? (
-                <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-700 mb-2">{t('quiz.correct')}</p>
-                  <img
-                    src={currentPokemon.imagePath}
-                    alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setIsImageModalOpen(true)}
-                  />
-                  <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
-                </div>
-              ) : (
-                <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-red-700 mb-2">{t('quiz.incorrect')}</p>
-                  <p className="text-lg text-gray-700 mb-2">
-                    {t('quizInput.yourAnswer')} <span className="font-bold">{userAnswer}</span>
-                  </p>
-                  <p className="text-lg text-gray-700">
-                    {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
-                  </p>
-                  <img
-                    src={currentPokemon.imagePath}
-                    alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain mt-4 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setIsImageModalOpen(true)}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {showResult && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleNext}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-              >
-                {t('quiz.nextQuestion')}
-              </button>
-            </div>
-          )}
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => router.push('/')}
-              className="text-gray-500 hover:text-gray-700 underline"
-            >
-              {t('quiz.backToHome')}
             </button>
+
+            {/* Waveform Canvas Container */}
+            <div className="w-full h-32 md:h-48 bg-background rounded-xl relative overflow-hidden shadow-inner">
+                {waveformLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center text-secondary text-sm">
+                        Loading...
+                    </div>
+                )}
+                <canvas 
+                    ref={canvasRef}
+                    className="w-full h-full"
+                    style={{ width: '100%', height: '100%' }}
+                />
+            </div>
+             <p className="mt-4 text-secondary text-sm">
+                {t('quizInput.instruction')}
+             </p>
           </div>
         </div>
+
+        {/* Right Column: Input Controls */}
+        <div className="flex flex-col justify-center h-full">
+          <div className="bg-surface rounded-apple p-6 shadow-float">
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Your Answer</h3>
+             
+             <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="pokemon-name" className="sr-only">Pokemon Name</label>
+                    <input
+                        ref={inputRef}
+                        id="pokemon-name"
+                        type="text"
+                        value={userAnswer}
+                        onChange={(e) => setUserAnswer(e.target.value)}
+                        disabled={showResult}
+                        className="w-full px-4 py-4 bg-background rounded-xl border-2 border-transparent focus:border-accent focus:bg-white transition-all outline-none text-lg font-medium placeholder-gray-400"
+                        placeholder={t('quizInput.placeholder')}
+                        autoComplete="off"
+                    />
+                </div>
+                
+                {!showResult && (
+                    <button
+                        type="submit"
+                        disabled={!userAnswer.trim()}
+                        className="w-full bg-black text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-all hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {t('quizInput.submit')}
+                    </button>
+                )}
+             </form>
+
+             {showResult && (
+                <div className="mt-6 pt-6 border-t border-gray-100 animate-slide-up">
+                   <div className="flex items-center gap-4 mb-4">
+                      <img 
+                        src={currentPokemon.imagePath} 
+                        alt={getPokemonName(currentPokemon)}
+                        className="w-16 h-16 object-contain bg-background rounded-lg p-2"
+                      />
+                      <div>
+                        <p className={`text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                          {isCorrect ? t('quiz.correct') : t('quiz.incorrect')}
+                        </p>
+                        {!isCorrect && (
+                            <div className="text-sm">
+                                <p className="text-secondary line-through">{userAnswer}</p>
+                                <p className="font-bold text-primary">{getPokemonName(currentPokemon)}</p>
+                            </div>
+                        )}
+                        {isCorrect && (
+                            <p className="text-sm text-primary">{getPokemonName(currentPokemon)}</p>
+                        )}
+                      </div>
+                   </div>
+                   <button
+                    onClick={loadNewQuestion}
+                    className="w-full bg-black text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-transform hover:bg-gray-900"
+                  >
+                    {t('quiz.nextQuestion')}
+                  </button>
+                </div>
+             )}
+          </div>
+        </div>
+
       </div>
-
-      {/* 画像拡大モーダル */}
-      {isImageModalOpen && currentPokemon && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsImageModalOpen(false)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <img
-              src={currentPokemon.imagePath}
-              alt={getPokemonName(currentPokemon)}
-              className="max-w-full max-h-[90vh] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={() => setIsImageModalOpen(false)}
-              className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 font-bold text-xl rounded-full w-10 h-10 flex items-center justify-center transition-all"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
-

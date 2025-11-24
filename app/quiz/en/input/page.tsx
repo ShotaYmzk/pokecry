@@ -6,7 +6,6 @@ import { getRandomPokemon, Pokemon } from '@/lib/pokemon'
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function QuizEnInputPage() {
   const router = useRouter()
@@ -16,7 +15,6 @@ export default function QuizEnInputPage() {
   const [userAnswer, setUserAnswer] = useState('')
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -24,14 +22,11 @@ export default function QuizEnInputPage() {
   }, [])
 
   useEffect(() => {
-    // 新しい問題が読み込まれたら入力欄にフォーカス
     if (inputRef.current && !showResult) {
       inputRef.current.focus()
     }
   }, [currentPokemon, showResult])
 
-
-  // 英語名を常に使用
   const getPokemonName = (pokemon: Pokemon) => {
     return pokemon.nameEn
   }
@@ -48,169 +43,106 @@ export default function QuizEnInputPage() {
     e.preventDefault()
     if (!currentPokemon || userAnswer.trim() === '') return
     
-    // 英語名で比較（大文字小文字を無視）
     const correct = userAnswer.trim().toLowerCase() === getPokemonName(currentPokemon).toLowerCase()
     setIsCorrect(correct)
     setShowResult(true)
 
-    // 不正解の場合、weakListに追加
     if (!correct) {
       addToWeakList(currentPokemon.id)
     }
   }
 
-  const handleNext = () => {
-    loadNewQuestion()
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !showResult) {
-      handleSubmit(e)
-    }
-  }
-
-  if (!currentPokemon) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LanguageSwitcher />
-        {t('quizEnInput.loading')}
-      </div>
-    )
-  }
+  if (!currentPokemon) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher />
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-            {t('quizEnInput.title')}
-          </h1>
+    <div className="p-6 md:p-8 min-h-screen md:h-screen md:overflow-hidden flex flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8 flex-1 h-full">
+        
+        {/* Center Column: Question Visual */}
+        <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 md:h-full relative overflow-hidden">
+          <header className="mb-8 text-center absolute top-8 z-10">
+             <span className="inline-block px-3 py-1 bg-blue-50 rounded-full text-xs font-bold text-blue-600 uppercase tracking-wider">English Input</span>
+             <h1 className="text-2xl font-bold mt-2">{t('quizEnInput.title')}</h1>
+          </header>
 
-          <div className="mb-6">
-            <p className="text-center text-gray-600 mb-4">
-              {t('quizEnInput.instruction')}
-            </p>
-            <div className="flex justify-center mb-6">
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
-                <p className="text-3xl font-bold text-center text-gray-800">
-                  {currentPokemon.name}
-                </p>
-              </div>
+          <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
+             <div className="bg-white rounded-apple shadow-float p-10 w-full text-center mb-8">
+                <p className="text-sm text-secondary uppercase tracking-wider mb-2">Japanese Name</p>
+                <h2 className="text-4xl md:text-5xl font-bold text-primary">{currentPokemon.name}</h2>
             </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mb-6">
-            <div className="mb-4">
-              <label htmlFor="pokemon-name" className="block text-gray-700 font-semibold mb-2">
-                {t('quizEnInput.pokemonName')}
-              </label>
-              <input
-                ref={inputRef}
-                id="pokemon-name"
-                type="text"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={showResult}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                placeholder={t('quizEnInput.placeholder')}
-                autoComplete="off"
-              />
-            </div>
-            {!showResult && (
-              <div className="flex justify-center">
-                <button
-                  type="submit"
-                  disabled={userAnswer.trim() === ''}
-                  className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-                >
-                  {t('quizInput.submit')}
-                </button>
-              </div>
-            )}
-          </form>
-
-          {showResult && (
-            <div className="mb-6">
-              {isCorrect ? (
-                <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-700 mb-2">{t('quiz.correct')}</p>
-                  <img
-                    src={currentPokemon.imagePath}
-                    alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setIsImageModalOpen(true)}
-                  />
-                  <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
-                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
-                </div>
-              ) : (
-                <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-red-700 mb-2">{t('quiz.incorrect')}</p>
-                  <p className="text-lg text-gray-700 mb-2">
-                    {t('quizInput.yourAnswer')} <span className="font-bold">{userAnswer}</span>
-                  </p>
-                  <p className="text-lg text-gray-700">
-                    {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
-                  <img
-                    src={currentPokemon.imagePath}
-                    alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain mt-4 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setIsImageModalOpen(true)}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {showResult && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleNext}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-              >
-                {t('quiz.nextQuestion')}
-              </button>
-            </div>
-          )}
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => router.push('/')}
-              className="text-gray-500 hover:text-gray-700 underline"
-            >
-              {t('quiz.backToHome')}
-            </button>
+             <p className="mt-4 text-secondary text-sm">
+                {t('quizEnInput.instruction')}
+             </p>
           </div>
         </div>
+
+        {/* Right Column: Input Controls */}
+        <div className="flex flex-col justify-center h-full">
+          <div className="bg-surface rounded-apple p-6 shadow-float">
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Your Answer (English)</h3>
+             
+             <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="pokemon-name" className="sr-only">Pokemon Name</label>
+                    <input
+                        ref={inputRef}
+                        id="pokemon-name"
+                        type="text"
+                        value={userAnswer}
+                        onChange={(e) => setUserAnswer(e.target.value)}
+                        disabled={showResult}
+                        className="w-full px-4 py-4 bg-background rounded-xl border-2 border-transparent focus:border-accent focus:bg-white transition-all outline-none text-lg font-medium placeholder-gray-400"
+                        placeholder={t('quizEnInput.placeholder')}
+                        autoComplete="off"
+                    />
+                </div>
+                
+                {!showResult && (
+                    <button
+                        type="submit"
+                        disabled={!userAnswer.trim()}
+                        className="w-full bg-black text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-all hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {t('quizInput.submit')}
+                    </button>
+                )}
+             </form>
+
+             {showResult && (
+                <div className="mt-6 pt-6 border-t border-gray-100 animate-slide-up">
+                   <div className="flex items-center gap-4 mb-4">
+                      <img 
+                        src={currentPokemon.imagePath} 
+                        alt={getPokemonName(currentPokemon)}
+                        className="w-16 h-16 object-contain bg-background rounded-lg p-2"
+                      />
+                      <div>
+                        <p className={`text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                          {isCorrect ? t('quiz.correct') : t('quiz.incorrect')}
+                        </p>
+                        {!isCorrect && (
+                            <div className="text-sm">
+                                <p className="text-secondary line-through">{userAnswer}</p>
+                                <p className="font-bold text-primary">{getPokemonName(currentPokemon)}</p>
+                            </div>
+                        )}
+                        {isCorrect && (
+                            <p className="text-sm text-primary">{getPokemonName(currentPokemon)}</p>
+                        )}
+                      </div>
+                   </div>
+                   <button
+                    onClick={loadNewQuestion}
+                    className="w-full bg-black text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-transform hover:bg-gray-900"
+                  >
+                    {t('quiz.nextQuestion')}
+                  </button>
+                </div>
+             )}
+          </div>
+        </div>
+
       </div>
-
-      {/* 画像拡大モーダル */}
-      {isImageModalOpen && currentPokemon && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsImageModalOpen(false)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <img
-              src={currentPokemon.imagePath}
-              alt={getPokemonName(currentPokemon)}
-              className="max-w-full max-h-[90vh] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={() => setIsImageModalOpen(false)}
-              className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 font-bold text-xl rounded-full w-10 h-10 flex items-center justify-center transition-all"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
-

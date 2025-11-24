@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { POKEMON_LIST, getRandomPokemons, shuffleArray, Pokemon, getPokemonById } from '@/lib/pokemon'
+import { POKEMON_LIST, shuffleArray, Pokemon, getPokemonById } from '@/lib/pokemon'
 import { getWeakList, addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function WeakPage() {
   const router = useRouter()
@@ -18,7 +17,7 @@ export default function WeakPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   const getPokemonName = (pokemon: Pokemon) => {
     return language === 'en' ? pokemon.nameEn : pokemon.name
@@ -36,13 +35,11 @@ export default function WeakPage() {
   const loadNewQuestion = (weakIds: string[]) => {
     if (weakIds.length === 0) return
 
-    // weakListからランダムに1体を選択
     const randomId = weakIds[Math.floor(Math.random() * weakIds.length)]
     const pokemon = getPokemonById(randomId)
     
     if (!pokemon) return
 
-    // 他の選択肢を生成（weakList以外からも選べる）
     const availableForChoices = POKEMON_LIST.filter(p => p.id !== pokemon.id)
     const wrongChoices = shuffleArray(availableForChoices).slice(0, 3)
     const allChoices = shuffleArray([pokemon, ...wrongChoices])
@@ -52,6 +49,16 @@ export default function WeakPage() {
     setSelectedAnswer(null)
     setIsCorrect(null)
     setShowResult(false)
+    setIsPlaying(false)
+    
+    setTimeout(() => playSound(pokemon.soundPath), 500)
+  }
+
+  const playSound = (path: string) => {
+    const audio = new Audio(path)
+    setIsPlaying(true)
+    audio.play()
+    audio.onended = () => setIsPlaying(false)
   }
 
   const handleAnswer = (choiceId: string) => {
@@ -62,7 +69,6 @@ export default function WeakPage() {
     setIsCorrect(correct)
     setShowResult(true)
 
-    // 不正解の場合のみ、weakListに再追加（重複は防ぐ）
     if (!correct && currentPokemon) {
       addToWeakList(currentPokemon.id)
       const updatedWeak = getWeakList()
@@ -76,82 +82,88 @@ export default function WeakPage() {
 
   if (weakList.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <LanguageSwitcher />
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <h1 className="text-2xl font-bold mb-4 text-gray-800">{t('weak.title')}</h1>
-          <p className="text-gray-600 mb-6">
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+        <div className="w-24 h-24 bg-surface rounded-full flex items-center justify-center mb-6 shadow-float">
+          <span className="text-4xl">🎉</span>
+        </div>
+        <h1 className="text-2xl font-bold mb-2">{t('weak.title')}</h1>
+        <p className="text-secondary mb-8 max-w-xs mx-auto">
             {t('weak.emptyMessage')}<br />
             {t('weak.emptyDescription')}
           </p>
           <button
             onClick={() => router.push('/quiz')}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          className="bg-black text-white font-bold py-3 px-8 rounded-apple active:scale-[0.98] transition-transform hover:bg-gray-900"
           >
             {t('weak.startNormalQuiz')}
           </button>
-          <div className="mt-4">
-            <button
-              onClick={() => router.push('/')}
-              className="text-gray-500 hover:text-gray-700 underline"
-            >
-              {t('weak.backToHome')}
-            </button>
-          </div>
-        </div>
       </div>
     )
   }
 
-  if (!currentPokemon) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LanguageSwitcher />
-        {t('weak.loading')}
-      </div>
-    )
-  }
+  if (!currentPokemon) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher />
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-2xl font-bold text-center mb-2 text-gray-800">
-            {t('weak.title')}
-          </h1>
-          <p className="text-center text-gray-500 mb-6 text-sm">
-            {t('weak.weakList')}: {weakList.length}{t('weak.count')}
-          </p>
+    <div className="p-6 md:p-8 min-h-screen md:h-screen md:overflow-hidden flex flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8 flex-1 h-full">
+        
+        {/* Center Column: Training Visual */}
+        <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 md:h-full relative overflow-hidden">
+          <header className="mb-8 text-center absolute top-8 z-10">
+             <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 rounded-full mb-2">
+               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"/>
+               <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Weak List: {weakList.length}</span>
+             </div>
+             <h1 className="text-2xl font-bold">{t('weak.title')}</h1>
+          </header>
 
-          <div className="mb-6">
-            <p className="text-center text-gray-600 mb-4">
-              {t('quiz.instruction')}
+          <div className="relative z-10 flex flex-col items-center">
+            <button
+              onClick={() => playSound(currentPokemon.soundPath)}
+              className={`w-40 h-40 md:w-64 md:h-64 rounded-full bg-background flex items-center justify-center shadow-float transition-all active:scale-95 group ${isPlaying ? 'scale-105 ring-4 ring-accent/20' : 'hover:scale-105'}`}
+            >
+              <div className={`w-32 h-32 md:w-48 md:h-48 rounded-full bg-white flex items-center justify-center ${isPlaying ? 'animate-pulse' : ''}`}>
+                 <svg 
+                  className={`w-12 h-12 md:w-20 md:h-20 text-orange-500 transition-transform ${isPlaying ? 'scale-110' : 'group-hover:scale-110'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
+                >
+                   <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+              </div>
+            </button>
+            <p className="mt-8 text-secondary font-medium animate-pulse">
+              {isPlaying ? t('quiz.playing') : t('quiz.instruction')}
             </p>
-            <div className="flex justify-center">
-              <audio controls className="w-full max-w-md">
-                <source src={currentPokemon.soundPath} type="audio/wav" />
-                {t('quiz.audioNotSupported')}
-              </audio>
-            </div>
           </div>
 
-          <div className="space-y-3 mb-6">
+           {/* Decorative background */}
+           <div className="absolute inset-0 opacity-30 pointer-events-none">
+              <div className="absolute -top-20 -right-20 w-64 h-64 bg-orange-100 rounded-full blur-3xl" />
+              <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-red-50 rounded-full blur-3xl" />
+           </div>
+        </div>
+
+        {/* Right Column: Controls */}
+        <div className="flex flex-col justify-center h-full">
+          <div className="bg-surface rounded-apple p-6 shadow-float md:h-auto">
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Identify Pokemon</h3>
+             <div className="grid grid-cols-1 gap-3">
             {choices.map((choice) => {
               const isSelected = selectedAnswer === choice.id
               const isCorrectChoice = choice.id === currentPokemon.id
-              let buttonClass = 'w-full py-4 px-6 rounded-lg font-semibold transition-colors '
+                  let buttonClass = 'w-full py-4 px-6 rounded-xl font-semibold transition-all duration-200 border-2 text-left '
 
               if (showResult) {
                 if (isCorrectChoice) {
-                  buttonClass += 'bg-green-500 text-white'
+                      buttonClass += 'bg-green-50 border-green-500 text-green-700'
                 } else if (isSelected) {
-                  buttonClass += 'bg-red-500 text-white'
+                      buttonClass += 'bg-red-50 border-red-500 text-red-700'
                 } else {
-                  buttonClass += 'bg-gray-200 text-gray-600'
+                      buttonClass += 'bg-background border-transparent text-secondary opacity-50'
                 }
               } else {
-                buttonClass += 'bg-orange-500 hover:bg-orange-600 text-white'
+                    buttonClass += 'bg-background border-transparent hover:bg-gray-50 hover:border-gray-200 active:scale-[0.98]'
               }
 
               return (
@@ -168,74 +180,34 @@ export default function WeakPage() {
           </div>
 
           {showResult && (
-            <div className="mb-6">
-              {isCorrect ? (
-                <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-700 mb-2">{t('quiz.correct')}</p>
+                <div className="mt-6 pt-6 border-t border-gray-100 animate-slide-up">
+                   <div className="flex items-center gap-4 mb-4">
                   <img
                     src={currentPokemon.imagePath}
                     alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setIsImageModalOpen(true)}
-                  />
-                  <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
-                </div>
-              ) : (
-                <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-red-700 mb-2">{t('quiz.incorrect')}</p>
-                  <p className="text-lg text-gray-700">
-                    {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
+                        className="w-16 h-16 object-contain bg-background rounded-lg p-2"
+                      />
+                      <div>
+                        <p className={`text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                          {isCorrect ? t('quiz.correct') : t('quiz.incorrect')}
+                        </p>
+                        <p className="text-sm text-primary">
+                          {getPokemonName(currentPokemon)}
                   </p>
                 </div>
-              )}
             </div>
-          )}
-
-          {showResult && (
-            <div className="flex justify-center">
               <button
                 onClick={handleNext}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+                    className="w-full bg-orange-500 text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-transform hover:bg-orange-600 shadow-lg shadow-orange-500/20"
               >
                 {t('quiz.nextQuestion')}
               </button>
             </div>
           )}
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => router.push('/')}
-              className="text-gray-500 hover:text-gray-700 underline"
-            >
-              {t('weak.backToHome')}
-            </button>
           </div>
         </div>
+
       </div>
-
-      {/* 画像拡大モーダル */}
-      {isImageModalOpen && currentPokemon && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsImageModalOpen(false)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <img
-              src={currentPokemon.imagePath}
-              alt={getPokemonName(currentPokemon)}
-              className="max-w-full max-h-[90vh] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={() => setIsImageModalOpen(false)}
-              className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 font-bold text-xl rounded-full w-10 h-10 flex items-center justify-center transition-all"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
-

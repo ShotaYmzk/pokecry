@@ -6,7 +6,6 @@ import { getRandomPokemon, getRandomPokemons, shuffleArray, Pokemon } from '@/li
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function QuizEnPage() {
   const router = useRouter()
@@ -17,7 +16,6 @@ export default function QuizEnPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
 
   useEffect(() => {
     loadNewQuestion()
@@ -36,161 +34,113 @@ export default function QuizEnPage() {
   }
 
   const handleAnswer = (choiceId: string) => {
-    if (selectedAnswer !== null) return // 既に回答済み
+    if (selectedAnswer !== null) return
     
     const correct = choiceId === currentPokemon?.id
     setSelectedAnswer(choiceId)
     setIsCorrect(correct)
     setShowResult(true)
 
-    // 不正解の場合、weakListに追加
     if (!correct && currentPokemon) {
       addToWeakList(currentPokemon.id)
     }
   }
 
-  const handleNext = () => {
-    loadNewQuestion()
-  }
-
-  if (!currentPokemon) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LanguageSwitcher />
-        {t('quizEn.loading')}
-      </div>
-    )
-  }
-
-  // 英語名を常に使用
   const getPokemonName = (pokemon: Pokemon) => {
-    return pokemon.nameEn
+    return pokemon.nameEn // Always English for choices
   }
+
+  if (!currentPokemon) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher />
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-            {t('quizEn.title')}
-          </h1>
+    <div className="p-6 md:p-8 min-h-screen md:h-screen md:overflow-hidden flex flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8 flex-1 h-full">
+        
+        {/* Center Column: Question Visual */}
+        <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 md:h-full relative overflow-hidden">
+          <header className="mb-8 text-center absolute top-8 z-10">
+             <span className="inline-block px-3 py-1 bg-blue-50 rounded-full text-xs font-bold text-blue-600 uppercase tracking-wider">English Quiz</span>
+             <h1 className="text-2xl font-bold mt-2">{t('quizEn.title')}</h1>
+          </header>
 
-          <div className="mb-6">
-            <p className="text-center text-gray-600 mb-4">
+          <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
+            <div className="bg-white rounded-apple shadow-float p-10 w-full text-center mb-8">
+                <p className="text-sm text-secondary uppercase tracking-wider mb-2">Japanese Name</p>
+                <h2 className="text-4xl md:text-5xl font-bold text-primary">{currentPokemon.name}</h2>
+            </div>
+            <p className="text-secondary font-medium">
               {t('quizEn.instruction')}
             </p>
-            <div className="flex justify-center mb-6">
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
-                <p className="text-3xl font-bold text-center text-gray-800">
-                  {currentPokemon.name}
-                </p>
-              </div>
-            </div>
           </div>
 
-          <div className="space-y-3 mb-6">
-            {choices.map((choice) => {
-              const isSelected = selectedAnswer === choice.id
-              const isCorrectChoice = choice.id === currentPokemon.id
-              let buttonClass = 'w-full py-4 px-6 rounded-lg font-semibold transition-colors '
+          {/* Decorative circles */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-gray-100 rounded-full -z-0" />
+        </div>
 
-              if (showResult) {
-                if (isCorrectChoice) {
-                  buttonClass += 'bg-green-500 text-white'
-                } else if (isSelected) {
-                  buttonClass += 'bg-red-500 text-white'
-                } else {
-                  buttonClass += 'bg-gray-200 text-gray-600'
-                }
-              } else {
-                buttonClass += 'bg-blue-500 hover:bg-blue-600 text-white'
-              }
+        {/* Right Column: Controls */}
+        <div className="flex flex-col justify-center h-full">
+          <div className="bg-surface rounded-apple p-6 shadow-float md:h-auto">
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Select English Name</h3>
+             <div className="grid grid-cols-1 gap-3">
+                {choices.map((choice) => {
+                  const isSelected = selectedAnswer === choice.id
+                  const isCorrectChoice = choice.id === currentPokemon.id
+                  let buttonClass = 'w-full py-4 px-6 rounded-xl font-semibold transition-all duration-200 border-2 text-left '
 
-              return (
-                <button
-                  key={choice.id}
-                  onClick={() => handleAnswer(choice.id)}
-                  className={buttonClass}
-                  disabled={showResult}
-                >
-                  {getPokemonName(choice)}
-                </button>
-              )
-            })}
-          </div>
+                  if (showResult) {
+                    if (isCorrectChoice) {
+                      buttonClass += 'bg-green-50 border-green-500 text-green-700'
+                    } else if (isSelected) {
+                      buttonClass += 'bg-red-50 border-red-500 text-red-700'
+                    } else {
+                      buttonClass += 'bg-background border-transparent text-secondary opacity-50'
+                    }
+                  } else {
+                    buttonClass += 'bg-background border-transparent hover:bg-gray-50 hover:border-gray-200 active:scale-[0.98]'
+                  }
 
-          {showResult && (
-            <div className="mb-6">
-              {isCorrect ? (
-                <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-700 mb-2">{t('quiz.correct')}</p>
-                  <img
-                    src={currentPokemon.imagePath}
-                    alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setIsImageModalOpen(true)}
-                  />
-                  <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
-                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
+                  return (
+                    <button
+                      key={choice.id}
+                      onClick={() => handleAnswer(choice.id)}
+                      className={buttonClass}
+                      disabled={showResult}
+                    >
+                      {getPokemonName(choice)}
+                    </button>
+                  )
+                })}
+             </div>
+
+             {showResult && (
+                <div className="mt-6 pt-6 border-t border-gray-100 animate-slide-up">
+                   <div className="flex items-center gap-4 mb-4">
+                      <img 
+                        src={currentPokemon.imagePath} 
+                        alt={getPokemonName(currentPokemon)}
+                        className="w-16 h-16 object-contain bg-background rounded-lg p-2"
+                      />
+                      <div>
+                        <p className={`text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                          {isCorrect ? t('quiz.correct') : t('quiz.incorrect')}
+                        </p>
+                        <p className="text-sm text-primary">
+                          {getPokemonName(currentPokemon)}
+                        </p>
+                      </div>
+                   </div>
+                   <button
+                    onClick={loadNewQuestion}
+                    className="w-full bg-black text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-transform hover:bg-gray-900"
+                  >
+                    {t('quiz.nextQuestion')}
+                  </button>
                 </div>
-              ) : (
-                <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-red-700 mb-2">{t('quiz.incorrect')}</p>
-                  <p className="text-lg text-gray-700">
-                    {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {showResult && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleNext}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-              >
-                {t('quiz.nextQuestion')}
-              </button>
-            </div>
-          )}
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => router.push('/')}
-              className="text-gray-500 hover:text-gray-700 underline"
-            >
-              {t('quiz.backToHome')}
-            </button>
+             )}
           </div>
         </div>
+
       </div>
-
-      {/* 画像拡大モーダル */}
-      {isImageModalOpen && currentPokemon && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsImageModalOpen(false)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <img
-              src={currentPokemon.imagePath}
-              alt={getPokemonName(currentPokemon)}
-              className="max-w-full max-h-[90vh] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={() => setIsImageModalOpen(false)}
-              className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 font-bold text-xl rounded-full w-10 h-10 flex items-center justify-center transition-all"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
-

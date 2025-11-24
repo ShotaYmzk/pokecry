@@ -138,7 +138,7 @@ export default function ComparePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher />
+      <LanguageSwitcher className="fixed top-4 right-4 z-50" />
       <div className="max-w-6xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-800">{t('compare.title')}</h1>
