@@ -4,15 +4,24 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { POKEMON_LIST, getRandomPokemons, shuffleArray, Pokemon, getPokemonById } from '@/lib/pokemon'
 import { getWeakList, addToWeakList } from '@/lib/storage'
+import { useLanguage } from '@/lib/LanguageContext'
+import { getTranslation } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function WeakPage() {
   const router = useRouter()
+  const { language } = useLanguage()
+  const t = (key: string) => getTranslation(language, key)
   const [weakList, setWeakList] = useState<string[]>([])
   const [currentPokemon, setCurrentPokemon] = useState<Pokemon | null>(null)
   const [choices, setChoices] = useState<Pokemon[]>([])
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
+
+  const getPokemonName = (pokemon: Pokemon) => {
+    return language === 'en' ? pokemon.nameEn : pokemon.name
+  }
 
   useEffect(() => {
     const weak = getWeakList()
@@ -67,24 +76,25 @@ export default function WeakPage() {
   if (weakList.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <LanguageSwitcher />
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <h1 className="text-2xl font-bold mb-4 text-gray-800">苦手ポケモンクイズ</h1>
+          <h1 className="text-2xl font-bold mb-4 text-gray-800">{t('weak.title')}</h1>
           <p className="text-gray-600 mb-6">
-            苦手リストが空です。<br />
-            通常クイズで間違えたポケモンが自動的に追加されます。
+            {t('weak.emptyMessage')}<br />
+            {t('weak.emptyDescription')}
           </p>
           <button
             onClick={() => router.push('/quiz')}
             className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
-            通常クイズを始める
+            {t('weak.startNormalQuiz')}
           </button>
           <div className="mt-4">
             <button
               onClick={() => router.push('/')}
               className="text-gray-500 hover:text-gray-700 underline"
             >
-              ホームに戻る
+              {t('weak.backToHome')}
             </button>
           </div>
         </div>
@@ -93,28 +103,34 @@ export default function WeakPage() {
   }
 
   if (!currentPokemon) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">読み込み中...</div>
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LanguageSwitcher />
+        {t('weak.loading')}
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      <LanguageSwitcher />
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h1 className="text-2xl font-bold text-center mb-2 text-gray-800">
-            苦手ポケモンクイズ
+            {t('weak.title')}
           </h1>
           <p className="text-center text-gray-500 mb-6 text-sm">
-            苦手リスト: {weakList.length}匹
+            {t('weak.weakList')}: {weakList.length}{t('weak.count')}
           </p>
 
           <div className="mb-6">
             <p className="text-center text-gray-600 mb-4">
-              このポケモンの鳴き声を聞いて、正しい名前を選んでください
+              {t('quiz.instruction')}
             </p>
             <div className="flex justify-center">
               <audio controls className="w-full max-w-md">
                 <source src={currentPokemon.soundPath} type="audio/wav" />
-                お使いのブラウザは音声再生に対応していません。
+                {t('quiz.audioNotSupported')}
               </audio>
             </div>
           </div>
@@ -144,7 +160,7 @@ export default function WeakPage() {
                   className={buttonClass}
                   disabled={showResult}
                 >
-                  {choice.name}
+                  {getPokemonName(choice)}
                 </button>
               )
             })}
@@ -154,19 +170,19 @@ export default function WeakPage() {
             <div className="mb-6">
               {isCorrect ? (
                 <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-700 mb-2">✓ 正解！</p>
+                  <p className="text-2xl font-bold text-green-700 mb-2">{t('quiz.correct')}</p>
                   <img
                     src={currentPokemon.imagePath}
-                    alt={currentPokemon.name}
+                    alt={getPokemonName(currentPokemon)}
                     className="w-32 h-32 mx-auto object-contain"
                   />
-                  <p className="text-lg text-gray-700 mt-2">{currentPokemon.name}</p>
+                  <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
                 </div>
               ) : (
                 <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-red-700 mb-2">✗ 不正解</p>
+                  <p className="text-2xl font-bold text-red-700 mb-2">{t('quiz.incorrect')}</p>
                   <p className="text-lg text-gray-700">
-                    正解は <span className="font-bold">{currentPokemon.name}</span> でした
+                    {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
                   </p>
                 </div>
               )}
@@ -179,7 +195,7 @@ export default function WeakPage() {
                 onClick={handleNext}
                 className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
               >
-                次の問題へ
+                {t('quiz.nextQuestion')}
               </button>
             </div>
           )}
@@ -189,7 +205,7 @@ export default function WeakPage() {
               onClick={() => router.push('/')}
               className="text-gray-500 hover:text-gray-700 underline"
             >
-              ホームに戻る
+              {t('weak.backToHome')}
             </button>
           </div>
         </div>

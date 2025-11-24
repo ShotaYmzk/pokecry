@@ -8,7 +8,7 @@ import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
-export default function QuizPage() {
+export default function QuizEnPage() {
   const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
@@ -56,13 +56,14 @@ export default function QuizPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LanguageSwitcher />
-        {t('quizInput.loading')}
+        {t('quizEn.loading')}
       </div>
     )
   }
 
+  // 英語名を常に使用
   const getPokemonName = (pokemon: Pokemon) => {
-    return language === 'en' ? pokemon.nameEn : pokemon.name
+    return pokemon.nameEn
   }
 
   return (
@@ -71,23 +72,19 @@ export default function QuizPage() {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-            {t('quiz.title')}
+            {t('quizEn.title')}
           </h1>
 
           <div className="mb-6">
             <p className="text-center text-gray-600 mb-4">
-              {t('quiz.instruction')}
+              {t('quizEn.instruction')}
             </p>
-            <div className="flex justify-center">
-              <audio 
-                key={currentPokemon.id} 
-                controls 
-                className="w-full max-w-md"
-                autoPlay={false}
-              >
-                <source src={currentPokemon.soundPath} type="audio/wav" />
-                {t('quiz.audioNotSupported')}
-              </audio>
+            <div className="flex justify-center mb-6">
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
+                <p className="text-3xl font-bold text-center text-gray-800">
+                  {currentPokemon.name}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -133,6 +130,7 @@ export default function QuizPage() {
                     className="w-32 h-32 mx-auto object-contain"
                   />
                   <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
+                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
                 </div>
               ) : (
                 <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
@@ -140,6 +138,7 @@ export default function QuizPage() {
                   <p className="text-lg text-gray-700">
                     {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
                   </p>
+                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
                 </div>
               )}
             </div>

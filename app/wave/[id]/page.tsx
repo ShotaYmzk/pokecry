@@ -3,19 +3,29 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getPokemonById } from '@/lib/pokemon'
+import { useLanguage } from '@/lib/LanguageContext'
+import { getTranslation } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function WavePage() {
   const params = useParams()
   const router = useRouter()
+  const { language } = useLanguage()
+  const t = (key: string) => getTranslation(language, key)
   const id = params.id as string
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const pokemon = getPokemonById(id)
 
+  const getPokemonName = (pokemon: typeof pokemon) => {
+    if (!pokemon) return ''
+    return language === 'en' ? pokemon.nameEn : pokemon.name
+  }
+
   useEffect(() => {
     if (!pokemon) {
-      setError('ポケモンが見つかりません')
+      setError(getTranslation(language, 'wave.notFound'))
       setLoading(false)
       return
     }
@@ -99,24 +109,25 @@ export default function WavePage() {
         setLoading(false)
       } catch (err) {
         console.error('波形描画エラー:', err)
-        setError('波形の描画に失敗しました')
+        setError(getTranslation(language, 'wave.error'))
         setLoading(false)
       }
     }
 
     drawWaveform()
-  }, [pokemon])
+  }, [pokemon, language])
 
   if (!pokemon) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <LanguageSwitcher />
         <div className="text-center">
-          <p className="text-red-600 mb-4">ポケモンが見つかりません</p>
+          <p className="text-red-600 mb-4">{t('wave.notFound')}</p>
           <button
             onClick={() => router.push('/list')}
             className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
           >
-            一覧に戻る
+            {t('wave.backToList')}
           </button>
         </div>
       </div>
@@ -125,18 +136,19 @@ export default function WavePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      <LanguageSwitcher />
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-center mb-2 text-gray-800">
-              {pokemon.name} の波形
+              {getPokemonName(pokemon)}{t('wave.title')}
             </h1>
             <p className="text-center text-gray-500 mb-4">ID: {pokemon.id}</p>
             
             <div className="flex justify-center mb-4">
               <img
                 src={pokemon.imagePath}
-                alt={pokemon.name}
+                alt={getPokemonName(pokemon)}
                 className="w-32 h-32 object-contain"
               />
             </div>
@@ -144,14 +156,14 @@ export default function WavePage() {
             <div className="flex justify-center mb-4">
               <audio controls className="w-full max-w-md">
                 <source src={pokemon.soundPath} type="audio/wav" />
-                お使いのブラウザは音声再生に対応していません。
+                {t('quiz.audioNotSupported')}
               </audio>
             </div>
           </div>
 
           {loading && (
             <div className="text-center py-8">
-              <p className="text-gray-600">波形を読み込んでいます...</p>
+              <p className="text-gray-600">{t('wave.loading')}</p>
             </div>
           )}
 
@@ -175,7 +187,7 @@ export default function WavePage() {
               onClick={() => router.back()}
               className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
             >
-              戻る
+              {t('wave.back')}
             </button>
           </div>
         </div>

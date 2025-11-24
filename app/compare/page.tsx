@@ -4,14 +4,23 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { POKEMON_LIST, Pokemon } from '@/lib/pokemon'
 import Link from 'next/link'
+import { useLanguage } from '@/lib/LanguageContext'
+import { getTranslation } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function ComparePage() {
   const router = useRouter()
+  const { language } = useLanguage()
+  const t = (key: string) => getTranslation(language, key)
   const [selectedPokemons, setSelectedPokemons] = useState<Pokemon[]>([])
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [isPlayingAll, setIsPlayingAll] = useState(false)
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
   const playAllTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const getPokemonName = (pokemon: Pokemon) => {
+    return language === 'en' ? pokemon.nameEn : pokemon.name
+  }
 
   const togglePokemon = (pokemon: Pokemon) => {
     const isSelected = selectedPokemons.some(p => p.id === pokemon.id)
@@ -21,7 +30,7 @@ export default function ComparePage() {
       if (selectedPokemons.length < 10) {
         setSelectedPokemons([...selectedPokemons, pokemon])
       } else {
-        alert('最大10匹まで選択できます')
+        alert(t('compare.maxSelection'))
       }
     }
   }
@@ -129,21 +138,22 @@ export default function ComparePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      <LanguageSwitcher />
       <div className="max-w-6xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">ポケモン鳴き声聴き比べ</h1>
+          <h1 className="text-2xl font-bold text-gray-800">{t('compare.title')}</h1>
           <Link
             href="/"
             className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
           >
-            ホームに戻る
+            {t('compare.backToHome')}
           </Link>
         </div>
 
         <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-700">
-              選択中のポケモン ({selectedPokemons.length}/10)
+              {t('compare.selectedPokemon')} ({selectedPokemons.length}/10)
             </h2>
             {selectedPokemons.length > 0 && (
               <div className="flex gap-2">
@@ -152,19 +162,19 @@ export default function ComparePage() {
                   disabled={isPlayingAll}
                   className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                 >
-                  {isPlayingAll ? '再生中...' : '全て順番に再生'}
+                  {isPlayingAll ? t('compare.playing') : t('compare.playAll')}
                 </button>
                 <button
                   onClick={stopAll}
                   className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                 >
-                  停止
+                  {t('compare.stop')}
                 </button>
                 <button
                   onClick={clearSelection}
                   className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                 >
-                  クリア
+                  {t('compare.clear')}
                 </button>
               </div>
             )}
@@ -172,7 +182,7 @@ export default function ComparePage() {
 
           {selectedPokemons.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
-              下のリストからポケモンを選択してください（最大10匹）
+              {t('compare.selectInstruction')}
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -184,17 +194,17 @@ export default function ComparePage() {
                   <button
                     onClick={() => removePokemon(pokemon.id)}
                     className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                    title="削除"
+                    title={t('compare.delete')}
                   >
                     ×
                   </button>
                   <img
                     src={`/poke_pic/${pokemon.id}.png`}
-                    alt={pokemon.name}
+                    alt={getPokemonName(pokemon)}
                     className="w-20 h-20 object-contain mx-auto mb-2"
                   />
                   <p className="text-xs text-center text-gray-500 font-semibold mb-1">{pokemon.id}</p>
-                  <p className="text-sm text-center text-gray-700 font-semibold mb-3">{pokemon.name}</p>
+                  <p className="text-sm text-center text-gray-700 font-semibold mb-3">{getPokemonName(pokemon)}</p>
                   <button
                     onClick={() => playPokemon(pokemon)}
                     disabled={playingId === pokemon.id || isPlayingAll}
@@ -204,7 +214,7 @@ export default function ComparePage() {
                         : 'bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300'
                     }`}
                   >
-                    {playingId === pokemon.id ? '再生中...' : '再生'}
+                    {playingId === pokemon.id ? t('compare.playing') : t('compare.play')}
                   </button>
                   <audio
                     ref={(el) => {
@@ -220,7 +230,7 @@ export default function ComparePage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">ポケモン一覧</h2>
+          <h2 className="text-xl font-semibold text-gray-700 mb-4">{t('compare.pokemonList')}</h2>
           <div className="grid grid-cols-5 md:grid-cols-10 gap-2 max-h-96 overflow-y-auto">
             {POKEMON_LIST.map((pokemon) => {
               const isSelected = selectedPokemons.some(p => p.id === pokemon.id)
@@ -241,11 +251,11 @@ export default function ComparePage() {
                   )}
                   <img
                     src={`/poke_pic/${pokemon.id}.png`}
-                    alt={pokemon.name}
+                    alt={getPokemonName(pokemon)}
                     className="w-16 h-16 object-contain mx-auto"
                   />
                   <p className="text-xs text-center mt-1 text-gray-500 font-semibold">{pokemon.id}</p>
-                  <p className="text-xs text-center mt-1 text-gray-700">{pokemon.name}</p>
+                  <p className="text-xs text-center mt-1 text-gray-700">{getPokemonName(pokemon)}</p>
                 </div>
               )
             })}

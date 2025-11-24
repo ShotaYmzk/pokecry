@@ -8,7 +8,7 @@ import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
-export default function QuizInputPage() {
+export default function QuizEnInputPage() {
   const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
@@ -16,11 +16,7 @@ export default function QuizInputPage() {
   const [userAnswer, setUserAnswer] = useState('')
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
-  const [waveformLoading, setWaveformLoading] = useState(false)
-  const [waveformError, setWaveformError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     loadNewQuestion()
@@ -33,108 +29,10 @@ export default function QuizInputPage() {
     }
   }, [currentPokemon, showResult])
 
-  useEffect(() => {
-    // 波形を描画
-    if (!currentPokemon) return
 
-    const drawWaveform = async () => {
-      try {
-        setWaveformLoading(true)
-        setWaveformError(null)
-        
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-        const response = await fetch(currentPokemon.soundPath)
-        const arrayBuffer = await response.arrayBuffer()
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-        
-        const canvas = canvasRef.current
-        if (!canvas) {
-          setWaveformLoading(false)
-          return
-        }
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          setWaveformLoading(false)
-          return
-        }
-
-        const width = canvas.width
-        const height = canvas.height
-        const channelData = audioBuffer.getChannelData(0)
-        const dataLength = channelData.length
-
-        // 背景をクリア
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, width, height)
-
-        // グリッド線を描画
-        ctx.strokeStyle = '#e5e7eb'
-        ctx.lineWidth = 1
-        const gridLines = 5
-        for (let i = 0; i <= gridLines; i++) {
-          const y = (height / gridLines) * i
-          ctx.beginPath()
-          ctx.moveTo(0, y)
-          ctx.lineTo(width, y)
-          ctx.stroke()
-        }
-
-        // 波形を描画
-        ctx.strokeStyle = '#3b82f6'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-
-        const centerY = height / 2
-        const samplesPerPixel = Math.floor(dataLength / width)
-
-        for (let x = 0; x < width; x++) {
-          const start = x * samplesPerPixel
-          const end = Math.min(start + samplesPerPixel, dataLength)
-          
-          let min = 0
-          let max = 0
-          
-          for (let i = start; i < end; i++) {
-            const value = channelData[i]
-            if (value < min) min = value
-            if (value > max) max = value
-          }
-
-          const y1 = centerY + min * centerY * 0.8
-          const y2 = centerY + max * centerY * 0.8
-
-          if (x === 0) {
-            ctx.moveTo(x, y1)
-          } else {
-            ctx.lineTo(x, y1)
-          }
-          ctx.lineTo(x, y2)
-        }
-
-        ctx.stroke()
-
-        // 中央線を描画
-        ctx.strokeStyle = '#9ca3af'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(0, centerY)
-        ctx.lineTo(width, centerY)
-        ctx.stroke()
-
-        setWaveformLoading(false)
-      } catch (err) {
-        console.error('波形描画エラー:', err)
-        setWaveformError(getTranslation(language, 'quizInput.waveformError'))
-        setWaveformLoading(false)
-      }
-    }
-
-    drawWaveform()
-  }, [currentPokemon])
-
+  // 英語名を常に使用
   const getPokemonName = (pokemon: Pokemon) => {
-    return language === 'en' ? pokemon.nameEn : pokemon.name
+    return pokemon.nameEn
   }
 
   const loadNewQuestion = () => {
@@ -143,17 +41,13 @@ export default function QuizInputPage() {
     setUserAnswer('')
     setIsCorrect(null)
     setShowResult(false)
-    
-    // 音声をリセット
-    if (audioRef.current) {
-      audioRef.current.load()
-    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentPokemon || userAnswer.trim() === '') return
     
+    // 英語名で比較（大文字小文字を無視）
     const correct = userAnswer.trim().toLowerCase() === getPokemonName(currentPokemon).toLowerCase()
     setIsCorrect(correct)
     setShowResult(true)
@@ -178,7 +72,7 @@ export default function QuizInputPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LanguageSwitcher />
-        {t('quizInput.loading')}
+        {t('quizEnInput.loading')}
       </div>
     )
   }
@@ -189,53 +83,26 @@ export default function QuizInputPage() {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-            {t('quizInput.title')}
+            {t('quizEnInput.title')}
           </h1>
 
           <div className="mb-6">
             <p className="text-center text-gray-600 mb-4">
-              {t('quizInput.instruction')}
+              {t('quizEnInput.instruction')}
             </p>
-            <div className="flex justify-center mb-4">
-              <audio 
-                ref={audioRef}
-                key={currentPokemon.id}
-                controls 
-                className="w-full max-w-md"
-                autoPlay={false}
-              >
-                <source src={currentPokemon.soundPath} type="audio/wav" />
-                {t('quiz.audioNotSupported')}
-              </audio>
-            </div>
-            
-            {/* 波形表示 */}
-            <div className="bg-gray-100 rounded-lg p-4">
-              {waveformLoading && (
-                <div className="text-center py-4">
-                  <p className="text-gray-600 text-sm">{t('quizInput.loadingWaveform')}</p>
-                </div>
-              )}
-              {waveformError && (
-                <div className="text-center py-4">
-                  <p className="text-red-600 text-sm">{waveformError}</p>
-                </div>
-              )}
-              {!waveformLoading && !waveformError && (
-                <canvas
-                  ref={canvasRef}
-                  width={800}
-                  height={200}
-                  className="w-full h-auto border border-gray-300 rounded"
-                />
-              )}
+            <div className="flex justify-center mb-6">
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
+                <p className="text-3xl font-bold text-center text-gray-800">
+                  {currentPokemon.name}
+                </p>
+              </div>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="mb-6">
             <div className="mb-4">
               <label htmlFor="pokemon-name" className="block text-gray-700 font-semibold mb-2">
-                {t('quizInput.pokemonName')}
+                {t('quizEnInput.pokemonName')}
               </label>
               <input
                 ref={inputRef}
@@ -246,7 +113,7 @@ export default function QuizInputPage() {
                 onKeyPress={handleKeyPress}
                 disabled={showResult}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                placeholder={t('quizInput.placeholder')}
+                placeholder={t('quizEnInput.placeholder')}
                 autoComplete="off"
               />
             </div>
@@ -274,6 +141,7 @@ export default function QuizInputPage() {
                     className="w-32 h-32 mx-auto object-contain"
                   />
                   <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
+                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
                 </div>
               ) : (
                 <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 text-center">
@@ -284,6 +152,7 @@ export default function QuizInputPage() {
                   <p className="text-lg text-gray-700">
                     {t('quiz.correctAnswer')} <span className="font-bold">{getPokemonName(currentPokemon)}</span> {t('quiz.was')}
                   </p>
+                  <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
                   <img
                     src={currentPokemon.imagePath}
                     alt={getPokemonName(currentPokemon)}
