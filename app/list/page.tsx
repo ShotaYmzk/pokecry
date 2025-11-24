@@ -72,12 +72,20 @@ export default function ListPage() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-800">{t('list.title')}</h1>
-          <Link
-            href="/"
-            className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-          >
-            {t('list.backToHome')}
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/compare"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              {t('list.compareSounds')}
+            </Link>
+            <Link
+              href="/"
+              className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              {t('list.backToHome')}
+            </Link>
+          </div>
         </div>
         <p className="text-gray-600 mb-4">
           {t('list.instruction')}

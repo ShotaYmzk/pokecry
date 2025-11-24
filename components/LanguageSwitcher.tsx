@@ -8,7 +8,7 @@ export function LanguageSwitcher() {
 
   return (
     <div className="fixed top-4 right-4 z-50">
-      <div className="bg-white rounded-lg shadow-lg p-2 flex gap-2">
+      <div className="bg-white rounded-lg shadow-lg p-2 flex flex-col gap-2">
         <button
           onClick={() => setLanguage('ja')}
           className={`px-3 py-1 rounded transition-colors ${

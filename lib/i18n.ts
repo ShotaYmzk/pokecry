@@ -13,7 +13,7 @@ export const translations = {
       quizEn: '英語名クイズ',
       selectEnFromChoices: '英語名を選択肢から選ぶ',
       inputEnName: '英語名を入力する',
-      pokemonList: 'ポケモン一覧（鳴き声図鑑）',
+      pokemonList: 'ポケモン図鑑',
       compareSounds: '鳴き声聴き比べ',
       weakPokemonQuiz: '苦手ポケモンだけでクイズ',
     },
@@ -52,9 +52,10 @@ export const translations = {
       loading: '読み込み中...',
     },
     list: {
-      title: 'ポケモン一覧（鳴き声図鑑）',
+      title: 'ポケモン図鑑',
       instruction: '画像をクリック/タップで鳴き声を再生。長押しで波形を表示します。',
       backToHome: 'ホームに戻る',
+      compareSounds: '鳴き声聴き比べ',
     },
     compare: {
       title: 'ポケモン鳴き声聴き比べ',
@@ -101,7 +102,7 @@ export const translations = {
       quizEn: 'English Name Quiz',
       selectEnFromChoices: 'Select English Name from Choices',
       inputEnName: 'Input English Name',
-      pokemonList: 'Pokemon List (Cry Pokedex)',
+      pokemonList: 'Pokemon Pokedex',
       compareSounds: 'Compare Cries',
       weakPokemonQuiz: 'Weak Pokemon Quiz',
     },
@@ -140,9 +141,10 @@ export const translations = {
       loading: 'Loading...',
     },
     list: {
-      title: 'Pokemon List (Cry Pokedex)',
+      title: 'Pokemon Pokedex',
       instruction: 'Click/tap image to play cry. Long press to show waveform.',
       backToHome: 'Back to Home',
+      compareSounds: 'Compare Cries',
     },
     compare: {
       title: 'Compare Pokemon Cries',

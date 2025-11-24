@@ -166,7 +166,7 @@ export function getRandomPokemon(): Pokemon {
 
 export function getRandomPokemons(count: number, excludeId?: string): Pokemon[] {
   const available = POKEMON_LIST.filter(p => p.id !== excludeId);
-  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleArray(available);
   return shuffled.slice(0, count);
 }
 

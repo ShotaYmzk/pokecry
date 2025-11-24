@@ -16,6 +16,7 @@ export default function QuizEnInputPage() {
   const [userAnswer, setUserAnswer] = useState('')
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -138,7 +139,8 @@ export default function QuizEnInputPage() {
                   <img
                     src={currentPokemon.imagePath}
                     alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain"
+                    className="w-32 h-32 mx-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setIsImageModalOpen(true)}
                   />
                   <p className="text-lg text-gray-700 mt-2">{getPokemonName(currentPokemon)}</p>
                   <p className="text-sm text-gray-500 mt-1">{currentPokemon.name}</p>
@@ -156,7 +158,8 @@ export default function QuizEnInputPage() {
                   <img
                     src={currentPokemon.imagePath}
                     alt={getPokemonName(currentPokemon)}
-                    className="w-32 h-32 mx-auto object-contain mt-4"
+                    className="w-32 h-32 mx-auto object-contain mt-4 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setIsImageModalOpen(true)}
                   />
                 </div>
               )}
@@ -184,6 +187,29 @@ export default function QuizEnInputPage() {
           </div>
         </div>
       </div>
+
+      {/* 画像拡大モーダル */}
+      {isImageModalOpen && currentPokemon && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <img
+              src={currentPokemon.imagePath}
+              alt={getPokemonName(currentPokemon)}
+              className="max-w-full max-h-[90vh] object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setIsImageModalOpen(false)}
+              className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 font-bold text-xl rounded-full w-10 h-10 flex items-center justify-center transition-all"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

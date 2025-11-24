@@ -61,12 +61,6 @@ export default function Home() {
             {t('home.pokemonList')}
           </Link>
           <Link
-            href="/compare"
-            className="block w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg text-center transition-colors"
-          >
-            {t('home.compareSounds')}
-          </Link>
-          <Link
             href="/weak"
             className="block w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg text-center transition-colors"
           >
