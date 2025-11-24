@@ -56,6 +56,10 @@ export const translations = {
       instruction: '画像をクリック/タップで鳴き声を再生。長押しで波形を表示します。',
       backToHome: 'ホームに戻る',
       compareSounds: '鳴き声聴き比べ',
+      searchPlaceholder: 'ポケモン名、英語名、IDで検索...',
+      searchResults: '件見つかりました',
+      noResults: '検索結果が見つかりませんでした',
+      clearSearch: '検索をクリア',
     },
     compare: {
       title: 'ポケモン鳴き声聴き比べ',
@@ -145,6 +149,10 @@ export const translations = {
       instruction: 'Click/tap image to play cry. Long press to show waveform.',
       backToHome: 'Back to Home',
       compareSounds: 'Compare Cries',
+      searchPlaceholder: 'Search by name, English name, or ID...',
+      searchResults: 'results found',
+      noResults: 'No search results found',
+      clearSearch: 'Clear search',
     },
     compare: {
       title: 'Compare Pokemon Cries',
