@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getPokemonById } from '@/lib/pokemon'
+import { getPokemonById, Pokemon } from '@/lib/pokemon'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
@@ -18,7 +18,7 @@ export default function WavePage() {
   const [error, setError] = useState<string | null>(null)
   const pokemon = getPokemonById(id)
 
-  const getPokemonName = (pokemon: typeof pokemon) => {
+  const getPokemonName = (pokemon: Pokemon | undefined) => {
     if (!pokemon) return ''
     return language === 'en' ? pokemon.nameEn : pokemon.name
   }
