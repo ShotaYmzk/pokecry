@@ -85,7 +85,7 @@ export default function ListPage() {
               onTouchEnd={handleTouchEnd}
             >
               <img
-                src={pokemon.imagePath}
+                src={`/poke_pic/${pokemon.id}.png`}
                 alt={pokemon.name}
                 className="w-20 h-20 object-contain mx-auto"
               />

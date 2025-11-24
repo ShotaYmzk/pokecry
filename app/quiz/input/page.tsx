@@ -11,8 +11,11 @@ export default function QuizInputPage() {
   const [userAnswer, setUserAnswer] = useState('')
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
+  const [waveformLoading, setWaveformLoading] = useState(false)
+  const [waveformError, setWaveformError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     loadNewQuestion()
@@ -24,6 +27,106 @@ export default function QuizInputPage() {
       inputRef.current.focus()
     }
   }, [currentPokemon, showResult])
+
+  useEffect(() => {
+    // 波形を描画
+    if (!currentPokemon) return
+
+    const drawWaveform = async () => {
+      try {
+        setWaveformLoading(true)
+        setWaveformError(null)
+        
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const response = await fetch(currentPokemon.soundPath)
+        const arrayBuffer = await response.arrayBuffer()
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+        
+        const canvas = canvasRef.current
+        if (!canvas) {
+          setWaveformLoading(false)
+          return
+        }
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          setWaveformLoading(false)
+          return
+        }
+
+        const width = canvas.width
+        const height = canvas.height
+        const channelData = audioBuffer.getChannelData(0)
+        const dataLength = channelData.length
+
+        // 背景をクリア
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, width, height)
+
+        // グリッド線を描画
+        ctx.strokeStyle = '#e5e7eb'
+        ctx.lineWidth = 1
+        const gridLines = 5
+        for (let i = 0; i <= gridLines; i++) {
+          const y = (height / gridLines) * i
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.lineTo(width, y)
+          ctx.stroke()
+        }
+
+        // 波形を描画
+        ctx.strokeStyle = '#3b82f6'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+
+        const centerY = height / 2
+        const samplesPerPixel = Math.floor(dataLength / width)
+
+        for (let x = 0; x < width; x++) {
+          const start = x * samplesPerPixel
+          const end = Math.min(start + samplesPerPixel, dataLength)
+          
+          let min = 0
+          let max = 0
+          
+          for (let i = start; i < end; i++) {
+            const value = channelData[i]
+            if (value < min) min = value
+            if (value > max) max = value
+          }
+
+          const y1 = centerY + min * centerY * 0.8
+          const y2 = centerY + max * centerY * 0.8
+
+          if (x === 0) {
+            ctx.moveTo(x, y1)
+          } else {
+            ctx.lineTo(x, y1)
+          }
+          ctx.lineTo(x, y2)
+        }
+
+        ctx.stroke()
+
+        // 中央線を描画
+        ctx.strokeStyle = '#9ca3af'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(0, centerY)
+        ctx.lineTo(width, centerY)
+        ctx.stroke()
+
+        setWaveformLoading(false)
+      } catch (err) {
+        console.error('波形描画エラー:', err)
+        setWaveformError('波形の描画に失敗しました')
+        setWaveformLoading(false)
+      }
+    }
+
+    drawWaveform()
+  }, [currentPokemon])
 
   const loadNewQuestion = () => {
     const pokemon = getRandomPokemon()
@@ -78,7 +181,7 @@ export default function QuizInputPage() {
             <p className="text-center text-gray-600 mb-4">
               このポケモンの鳴き声を聞いて、名前を入力してください
             </p>
-            <div className="flex justify-center">
+            <div className="flex justify-center mb-4">
               <audio 
                 ref={audioRef}
                 key={currentPokemon.id}
@@ -89,6 +192,28 @@ export default function QuizInputPage() {
                 <source src={currentPokemon.soundPath} type="audio/wav" />
                 お使いのブラウザは音声再生に対応していません。
               </audio>
+            </div>
+            
+            {/* 波形表示 */}
+            <div className="bg-gray-100 rounded-lg p-4">
+              {waveformLoading && (
+                <div className="text-center py-4">
+                  <p className="text-gray-600 text-sm">波形を読み込んでいます...</p>
+                </div>
+              )}
+              {waveformError && (
+                <div className="text-center py-4">
+                  <p className="text-red-600 text-sm">{waveformError}</p>
+                </div>
+              )}
+              {!waveformLoading && !waveformError && (
+                <canvas
+                  ref={canvasRef}
+                  width={800}
+                  height={200}
+                  className="w-full h-auto border border-gray-300 rounded"
+                />
+              )}
             </div>
           </div>
 
