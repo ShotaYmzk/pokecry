@@ -74,7 +74,7 @@ export const Navigation = () => {
 
         <div className="px-4 py-4 border-t border-gray-100">
           <p className="text-xs text-secondary">
-            © 2025 PokeWav
+            © 2026 PokeWav
           </p>
         </div>
       </nav>

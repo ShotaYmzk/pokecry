@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getRandomPokemon, getRandomPokemons, shuffleArray, Pokemon } from '@/lib/pokemon'
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
+import { GenerationSelector } from '@/components/GenerationSelector'
 
 export default function QuizPage() {
-  const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
   const [currentPokemon, setCurrentPokemon] = useState<Pokemon | null>(null)
@@ -17,14 +16,36 @@ export default function QuizPage() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [generation, setGeneration] = useState<number | undefined>(undefined)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     loadNewQuestion()
+    return () => {
+      if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    }
+  }, [])
+
+  const handleGenerationChange = useCallback((gen: number | undefined) => {
+    setGeneration(gen)
+    const pokemon = getRandomPokemon(gen)
+    const wrongChoices = getRandomPokemons(3, pokemon.id, gen)
+    const allChoices = shuffleArray([pokemon, ...wrongChoices])
+    setCurrentPokemon(pokemon)
+    setChoices(allChoices)
+    setSelectedAnswer(null)
+    setIsCorrect(null)
+    setShowResult(false)
+    setIsPlaying(false)
+    if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+    autoPlayTimerRef.current = setTimeout(() => playSound(pokemon.soundPath), 500)
   }, [])
 
   const loadNewQuestion = () => {
-    const pokemon = getRandomPokemon()
-    const wrongChoices = getRandomPokemons(3, pokemon.id)
+    const pokemon = getRandomPokemon(generation)
+    const wrongChoices = getRandomPokemons(3, pokemon.id, generation)
     const allChoices = shuffleArray([pokemon, ...wrongChoices])
     
     setCurrentPokemon(pokemon)
@@ -34,13 +55,16 @@ export default function QuizPage() {
     setShowResult(false)
     setIsPlaying(false)
     
-    setTimeout(() => playSound(pokemon.soundPath), 500)
+    if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+    autoPlayTimerRef.current = setTimeout(() => playSound(pokemon.soundPath), 500)
   }
 
   const playSound = (path: string) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     const audio = new Audio(path)
+    audioRef.current = audio
     setIsPlaying(true)
-    audio.play()
+    audio.play().catch(() => setIsPlaying(false))
     audio.onended = () => setIsPlaying(false)
   }
 
@@ -69,9 +93,12 @@ export default function QuizPage() {
         
         {/* Center Column: Battle Visual */}
         <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 md:h-full relative overflow-hidden">
-          <header className="mb-8 text-center absolute top-8 z-10">
-             <span className="inline-block px-3 py-1 bg-background rounded-full text-xs font-bold text-secondary uppercase tracking-wider">Battle Mode</span>
+          <header className="mb-8 text-center absolute top-8 z-10 w-full px-8">
+             <span className="inline-block px-3 py-1 bg-background rounded-full text-xs font-bold text-secondary uppercase tracking-wider">{t('quiz.battleMode')}</span>
              <h1 className="text-2xl font-bold mt-2">{t('quiz.title')}</h1>
+             <div className="mt-3 flex justify-center">
+               <GenerationSelector value={generation} onChange={handleGenerationChange} />
+             </div>
           </header>
 
           <div className="relative z-10 flex flex-col items-center">
@@ -102,7 +129,7 @@ export default function QuizPage() {
         {/* Right Column: Controls */}
         <div className="flex flex-col justify-center h-full">
           <div className="bg-surface rounded-apple p-6 shadow-float md:h-auto">
-             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Select Answer</h3>
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">{t('quiz.selectAnswer')}</h3>
              <div className="grid grid-cols-1 gap-3">
                 {choices.map((choice) => {
                   const isSelected = selectedAnswer === choice.id

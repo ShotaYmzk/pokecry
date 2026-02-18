@@ -1,22 +1,26 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { POKEMON_LIST, Pokemon } from '@/lib/pokemon'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { POKEMON_LIST, GENERATIONS, Pokemon } from '@/lib/pokemon'
 import Link from 'next/link'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export default function ComparePage() {
-  const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
   const [selectedPokemons, setSelectedPokemons] = useState<Pokemon[]>([])
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [isPlayingAll, setIsPlayingAll] = useState(false)
+  const [filterGeneration, setFilterGeneration] = useState<number | null>(null)
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
   const playAllTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const playAllCancelledRef = useRef(false)
+
+  const displayList = useMemo(() => {
+    if (filterGeneration === null) return POKEMON_LIST
+    return POKEMON_LIST.filter(p => p.generation === filterGeneration)
+  }, [filterGeneration])
 
   const getPokemonName = (pokemon: Pokemon) => {
     return language === 'en' ? pokemon.nameEn : pokemon.name
@@ -36,35 +40,26 @@ export default function ComparePage() {
   }
 
   const removePokemon = (id: string) => {
+    const audio = audioRefs.current[id]
+    if (audio) {
+      audio.pause()
+      audio.currentTime = 0
+    }
+    delete audioRefs.current[id]
     setSelectedPokemons(selectedPokemons.filter(p => p.id !== id))
-    // 再生中の場合は停止
     if (playingId === id) {
-      const audio = audioRefs.current[id]
-      if (audio) {
-        audio.pause()
-        audio.currentTime = 0
-      }
       setPlayingId(null)
     }
   }
 
   const playPokemon = async (pokemon: Pokemon) => {
-    // 他の再生を停止
-    Object.values(audioRefs.current).forEach(audio => {
-      if (audio) {
-        audio.pause()
-        audio.currentTime = 0
-      }
-    })
-    setPlayingId(null)
-    setIsPlayingAll(false)
+    stopAll()
 
-    // 選択したポケモンの音声を再生
     const audio = audioRefs.current[pokemon.id]
     if (audio) {
       audio.currentTime = 0
-      await audio.play()
       setPlayingId(pokemon.id)
+      audio.play().catch(() => setPlayingId(null))
       audio.onended = () => setPlayingId(null)
     }
   }
@@ -72,17 +67,13 @@ export default function ComparePage() {
   const playAllSequentially = async () => {
     if (selectedPokemons.length === 0) return
 
-    // 全ての再生を停止
-    Object.values(audioRefs.current).forEach(audio => {
-      if (audio) {
-        audio.pause()
-        audio.currentTime = 0
-      }
-    })
-    setPlayingId(null)
+    stopAll()
+    playAllCancelledRef.current = false
     setIsPlayingAll(true)
 
     for (let i = 0; i < selectedPokemons.length; i++) {
+      if (playAllCancelledRef.current) break
+
       const pokemon = selectedPokemons[i]
       const audio = audioRefs.current[pokemon.id]
       
@@ -95,12 +86,16 @@ export default function ComparePage() {
             setPlayingId(null)
             resolve()
           }
+          audio.onerror = () => resolve()
           audio.play().catch(() => resolve())
         })
 
-        // 次の音声までの間隔（0.5秒）
+        if (playAllCancelledRef.current) break
+
         if (i < selectedPokemons.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500))
+          await new Promise<void>(resolve => {
+            playAllTimeoutRef.current = setTimeout(resolve, 500)
+          })
         }
       }
     }
@@ -110,10 +105,12 @@ export default function ComparePage() {
   }
 
   const stopAll = () => {
+    playAllCancelledRef.current = true
     Object.values(audioRefs.current).forEach(audio => {
       if (audio) {
         audio.pause()
         audio.currentTime = 0
+        audio.onended = null
       }
     })
     setPlayingId(null)
@@ -137,22 +134,21 @@ export default function ComparePage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <LanguageSwitcher className="fixed top-4 right-4 z-50" />
+    <div className="p-4 md:p-8 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">{t('compare.title')}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('compare.title')}</h1>
           <Link
             href="/"
-            className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            className="text-accent font-medium text-sm hover:opacity-70 transition-opacity"
           >
             {t('compare.backToHome')}
           </Link>
         </div>
 
-        <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
+        <div className="mb-6 bg-surface rounded-apple shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-700">
+            <h2 className="text-lg font-semibold">
               {t('compare.selectedPokemon')} ({selectedPokemons.length}/10)
             </h2>
             {selectedPokemons.length > 0 && (
@@ -160,19 +156,19 @@ export default function ComparePage() {
                 <button
                   onClick={playAllSequentially}
                   disabled={isPlayingAll}
-                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                  className="bg-black hover:bg-gray-900 disabled:bg-gray-300 text-white font-semibold py-2 px-4 rounded-xl text-sm transition-colors"
                 >
                   {isPlayingAll ? t('compare.playing') : t('compare.playAll')}
                 </button>
                 <button
                   onClick={stopAll}
-                  className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                  className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl text-sm transition-colors"
                 >
                   {t('compare.stop')}
                 </button>
                 <button
                   onClick={clearSelection}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                  className="bg-background hover:bg-gray-200 text-secondary font-semibold py-2 px-4 rounded-xl text-sm transition-colors"
                 >
                   {t('compare.clear')}
                 </button>
@@ -181,7 +177,7 @@ export default function ComparePage() {
           </div>
 
           {selectedPokemons.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
+            <p className="text-secondary text-center py-8">
               {t('compare.selectInstruction')}
             </p>
           ) : (
@@ -189,7 +185,7 @@ export default function ComparePage() {
               {selectedPokemons.map((pokemon) => (
                 <div
                   key={pokemon.id}
-                  className="bg-gray-50 rounded-lg p-4 border-2 border-blue-300 relative"
+                  className="bg-background rounded-xl p-4 border-2 border-accent/30 relative"
                 >
                   <button
                     onClick={() => removePokemon(pokemon.id)}
@@ -199,19 +195,19 @@ export default function ComparePage() {
                     ×
                   </button>
                   <img
-                    src={`/poke_pic/${pokemon.id}.png`}
+                    src={pokemon.imagePath}
                     alt={getPokemonName(pokemon)}
                     className="w-20 h-20 object-contain mx-auto mb-2"
                   />
-                  <p className="text-xs text-center text-gray-500 font-semibold mb-1">{pokemon.id}</p>
-                  <p className="text-sm text-center text-gray-700 font-semibold mb-3">{getPokemonName(pokemon)}</p>
+                  <p className="text-xs text-center text-secondary font-semibold mb-1">{pokemon.id}</p>
+                  <p className="text-sm text-center font-semibold mb-3">{getPokemonName(pokemon)}</p>
                   <button
                     onClick={() => playPokemon(pokemon)}
                     disabled={playingId === pokemon.id || isPlayingAll}
-                    className={`w-full py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                    className={`w-full py-2 px-3 rounded-xl font-semibold text-sm transition-colors ${
                       playingId === pokemon.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300'
+                        ? 'bg-accent text-white'
+                        : 'bg-black hover:bg-gray-900 text-white disabled:bg-gray-300'
                     }`}
                   >
                     {playingId === pokemon.id ? t('compare.playing') : t('compare.play')}
@@ -229,33 +225,56 @@ export default function ComparePage() {
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">{t('compare.pokemonList')}</h2>
+        <div className="bg-surface rounded-apple shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">{t('compare.pokemonList')}</h2>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
+            <button
+              onClick={() => setFilterGeneration(null)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                filterGeneration === null ? 'bg-black text-white shadow-sm' : 'bg-background text-secondary hover:bg-gray-200'
+              }`}
+            >
+              {t('generation.all')}
+            </button>
+            {GENERATIONS.map((gen) => (
+              <button
+                key={gen.id}
+                onClick={() => setFilterGeneration(gen.id)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  filterGeneration === gen.id ? 'bg-black text-white shadow-sm' : 'bg-background text-secondary hover:bg-gray-200'
+                }`}
+              >
+                {language === 'en' ? gen.regionEn : gen.region}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-5 md:grid-cols-10 gap-2 max-h-96 overflow-y-auto">
-            {POKEMON_LIST.map((pokemon) => {
+            {displayList.map((pokemon) => {
               const isSelected = selectedPokemons.some(p => p.id === pokemon.id)
               return (
                 <div
                   key={pokemon.id}
                   onClick={() => togglePokemon(pokemon)}
-                  className={`relative cursor-pointer bg-white rounded-lg p-2 border-2 transition-colors ${
+                  className={`relative cursor-pointer bg-surface rounded-xl p-2 border-2 transition-colors ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-accent bg-accent/5'
+                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   {isSelected && (
-                    <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">
+                    <div className="absolute top-1 right-1 w-5 h-5 bg-accent text-white rounded-full flex items-center justify-center text-xs">
                       ✓
                     </div>
                   )}
                   <img
-                    src={`/poke_pic/${pokemon.id}.png`}
+                    src={pokemon.imagePath}
                     alt={getPokemonName(pokemon)}
                     className="w-16 h-16 object-contain mx-auto"
                   />
-                  <p className="text-xs text-center mt-1 text-gray-500 font-semibold">{pokemon.id}</p>
-                  <p className="text-xs text-center mt-1 text-gray-700">{getPokemonName(pokemon)}</p>
+                  <p className="text-xs text-center mt-1 text-secondary font-semibold">{pokemon.id}</p>
+                  <p className="text-xs text-center mt-1">{getPokemonName(pokemon)}</p>
                 </div>
               )
             })}

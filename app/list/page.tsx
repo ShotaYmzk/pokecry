@@ -1,23 +1,45 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { POKEMON_LIST, Pokemon } from '@/lib/pokemon'
+import { Suspense, useState, useRef, useMemo, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { POKEMON_LIST, GENERATIONS, Pokemon } from '@/lib/pokemon'
 import Link from 'next/link'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
 
 export default function ListPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-secondary">Loading...</div>}>
+      <ListPageContent />
+    </Suspense>
+  )
+}
+
+function ListPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
   
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [selectedPokemon, setSelectedPokemon] = useState<Pokemon | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null)
+
+  useEffect(() => {
+    const genParam = searchParams.get('gen')
+    if (genParam) {
+      const genId = parseInt(genParam, 10)
+      if ([1, 2, 3, 4, 5].includes(genId)) {
+        setSelectedGeneration(genId)
+      }
+    }
+  }, [searchParams])
   
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isLongPressRef = useRef(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const isTouchDeviceRef = useRef(false)
 
   const getPokemonName = (pokemon: typeof POKEMON_LIST[0]) => {
     return language === 'en' ? pokemon.nameEn : pokemon.name
@@ -41,12 +63,16 @@ export default function ListPage() {
   }
 
   const filteredPokemon = useMemo(() => {
-    if (!searchQuery.trim()) return POKEMON_LIST
+    let list = POKEMON_LIST
+    if (selectedGeneration !== null) {
+      list = list.filter(p => p.generation === selectedGeneration)
+    }
+    if (!searchQuery.trim()) return list
     
     const query = searchQuery.trim()
     const normalizedQueries = normalizeJapanese(query.toLowerCase())
     
-    return POKEMON_LIST.filter((pokemon) => {
+    return list.filter((pokemon) => {
       const name = pokemon.name
       const nameLower = name.toLowerCase()
       const nameEn = pokemon.nameEn.toLowerCase()
@@ -56,11 +82,13 @@ export default function ListPage() {
       const matchesJapanese = normalizedQueries.some(q => normalizedNames.some(n => n.includes(q)))
       return matchesJapanese || nameEn.includes(query.toLowerCase()) || id.includes(query.toLowerCase())
     })
-  }, [searchQuery])
+  }, [searchQuery, selectedGeneration])
 
   const playSound = (id: string, soundPath: string) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     const audio = new Audio(soundPath)
-    audio.play()
+    audioRef.current = audio
+    audio.play().catch(() => setPlayingId(null))
     setPlayingId(id)
     audio.onended = () => setPlayingId(null)
   }
@@ -80,26 +108,31 @@ export default function ListPage() {
     router.push(`/wave/${id}`)
   }
 
-  // Touch/Mouse handlers for long press...
+  const cancelPress = useCallback(() => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
+  }, [])
+
   const handleMouseDown = (id: string) => {
+    if (isTouchDeviceRef.current) return
     isLongPressRef.current = false
+    cancelPress()
     pressTimerRef.current = setTimeout(() => handleLongPress(id), 500)
   }
   const handleMouseUp = () => {
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current)
-      pressTimerRef.current = null
-    }
+    if (isTouchDeviceRef.current) return
+    cancelPress()
   }
   const handleTouchStart = (id: string) => {
+    isTouchDeviceRef.current = true
     isLongPressRef.current = false
+    cancelPress()
     pressTimerRef.current = setTimeout(() => handleLongPress(id), 500)
   }
   const handleTouchEnd = () => {
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current)
-      pressTimerRef.current = null
-    }
+    cancelPress()
   }
 
   return (
@@ -120,7 +153,32 @@ export default function ListPage() {
             </div>
           </div>
           
-          <div className="mb-6 sticky top-0 z-20 bg-surface/80 backdrop-blur-md py-2">
+          <div className="mb-6 sticky top-0 z-20 bg-surface/80 backdrop-blur-md py-3 px-4 -mx-4 rounded-2xl space-y-3">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <button
+                onClick={() => setSelectedGeneration(null)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  selectedGeneration === null
+                    ? 'bg-black text-white shadow-sm'
+                    : 'bg-background text-secondary hover:bg-gray-200'
+                }`}
+              >
+                {t('generation.all')}
+              </button>
+              {GENERATIONS.map((gen) => (
+                <button
+                  key={gen.id}
+                  onClick={() => setSelectedGeneration(gen.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    selectedGeneration === gen.id
+                      ? 'bg-black text-white shadow-sm'
+                      : 'bg-background text-secondary hover:bg-gray-200'
+                  }`}
+                >
+                  {language === 'en' ? gen.regionEn : gen.region}
+                </button>
+              ))}
+            </div>
             <input
               type="text"
               value={searchQuery}
@@ -154,7 +212,7 @@ export default function ListPage() {
                   >
                     <div className="relative w-full aspect-square bg-background rounded-apple mb-2 flex items-center justify-center transition-transform active:scale-95">
                       <img
-                        src={`/poke_pic/${pokemon.id}.png`}
+                        src={pokemon.imagePath}
                         alt={getPokemonName(pokemon)}
                         className="w-3/4 h-3/4 object-contain"
                         loading="lazy"
@@ -192,14 +250,14 @@ export default function ListPage() {
                     className="w-full py-3 bg-black text-white rounded-xl font-bold mb-4 active:scale-95 transition-transform flex items-center justify-center gap-2"
                  >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                    Play Cry
+                    {t('list.playCry')}
                  </button>
 
                  <Link 
                     href={`/wave/${selectedPokemon.id}`}
-                    className="block w-full py-3 bg-background text-primary rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                    className="block w-full py-3 bg-background text-primary rounded-xl font-medium hover:bg-gray-200 transition-colors text-center"
                  >
-                    View Waveform
+                    {t('list.viewWaveform')}
                  </Link>
               </div>
             ) : (
@@ -207,7 +265,7 @@ export default function ListPage() {
                 <div className="w-16 h-16 mx-auto mb-4 text-gray-300">
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
-                <p>Select a Pokemon to view details</p>
+                <p>{t('list.selectToView')}</p>
               </div>
             )}
           </div>

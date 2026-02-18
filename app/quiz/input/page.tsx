@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getRandomPokemon, Pokemon } from '@/lib/pokemon'
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
+import { GenerationSelector } from '@/components/GenerationSelector'
 
 export default function QuizInputPage() {
-  const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
   const [currentPokemon, setCurrentPokemon] = useState<Pokemon | null>(null)
@@ -18,13 +17,20 @@ export default function QuizInputPage() {
   const [waveformLoading, setWaveformLoading] = useState(false)
   const [waveformError, setWaveformError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [generation, setGeneration] = useState<number | undefined>(undefined)
   
   const inputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initial Load
   useEffect(() => {
     loadNewQuestion()
+    return () => {
+      if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    }
   }, [])
 
   // Focus input on new question
@@ -38,23 +44,28 @@ export default function QuizInputPage() {
   useEffect(() => {
     if (!currentPokemon) return
 
+    let cancelled = false
+    let audioCtx: AudioContext | null = null
+
     const drawWaveform = async () => {
       try {
         setWaveformLoading(true)
         setWaveformError(null)
         
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
         const response = await fetch(currentPokemon.soundPath)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const arrayBuffer = await response.arrayBuffer()
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+
+        if (cancelled) return
         
         const canvas = canvasRef.current
-        if (!canvas) return
+        if (!canvas) { setWaveformLoading(false); return }
 
         const ctx = canvas.getContext('2d')
-        if (!ctx) return
+        if (!ctx) { setWaveformLoading(false); return }
 
-        // High DPI rendering
         const dpr = window.devicePixelRatio || 1
         const rect = canvas.getBoundingClientRect()
         canvas.width = rect.width * dpr
@@ -66,12 +77,10 @@ export default function QuizInputPage() {
         const channelData = audioBuffer.getChannelData(0)
         const dataLength = channelData.length
 
-        // Clear background
         ctx.clearRect(0, 0, width, height)
-        ctx.fillStyle = '#F5F5F7' // tailwind background color
+        ctx.fillStyle = '#F5F5F7'
         ctx.fillRect(0, 0, width, height)
 
-        // Draw grid
         ctx.strokeStyle = '#E5E5E5'
         ctx.lineWidth = 1
         ctx.beginPath()
@@ -79,73 +88,79 @@ export default function QuizInputPage() {
         ctx.lineTo(width, height / 2)
         ctx.stroke()
 
-        // Draw waveform
-        ctx.strokeStyle = '#007AFF' // Apple Blue
+        ctx.strokeStyle = '#007AFF'
         ctx.lineWidth = 2
         ctx.lineJoin = 'round'
         ctx.beginPath()
 
         const centerY = height / 2
-        // Show roughly 1/4 of seconds if long, or full if short? 
-        // Just show full for now, but optimize sampling
         const samplesPerPixel = Math.floor(dataLength / width)
 
         for (let x = 0; x < width; x++) {
           const start = x * samplesPerPixel
           const end = Math.min(start + samplesPerPixel, dataLength)
-          
-          let min = 0
-          let max = 0
-          
+          let min = 0, max = 0
           for (let i = start; i < end; i++) {
             const value = channelData[i]
             if (value < min) min = value
             if (value > max) max = value
           }
-
-          const y1 = centerY + min * centerY * 0.9
-          const y2 = centerY + max * centerY * 0.9
-
-          ctx.moveTo(x, y1)
-          ctx.lineTo(x, y2)
+          ctx.moveTo(x, centerY + min * centerY * 0.9)
+          ctx.lineTo(x, centerY + max * centerY * 0.9)
         }
 
         ctx.stroke()
         setWaveformLoading(false)
       } catch (err) {
+        if (cancelled) return
         console.error('Waveform error:', err)
         setWaveformError(getTranslation(language, 'quizInput.waveformError'))
         setWaveformLoading(false)
       }
     }
 
-    // Use RequestAnimationFrame to ensure canvas is ready in DOM
-    requestAnimationFrame(() => {
-        drawWaveform()
-    })
-    
-  }, [currentPokemon])
+    requestAnimationFrame(() => { drawWaveform() })
+
+    return () => {
+      cancelled = true
+      if (audioCtx) audioCtx.close().catch(() => {})
+    }
+  }, [currentPokemon, language])
 
   const getPokemonName = (pokemon: Pokemon) => {
     return language === 'en' ? pokemon.nameEn : pokemon.name
   }
 
+  const handleGenerationChange = useCallback((gen: number | undefined) => {
+    setGeneration(gen)
+    const pokemon = getRandomPokemon(gen)
+    setCurrentPokemon(pokemon)
+    setUserAnswer('')
+    setIsCorrect(null)
+    setShowResult(false)
+    setIsPlaying(false)
+    if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+    autoPlayTimerRef.current = setTimeout(() => playSound(pokemon.soundPath), 500)
+  }, [])
+
   const loadNewQuestion = () => {
-    const pokemon = getRandomPokemon()
+    const pokemon = getRandomPokemon(generation)
     setCurrentPokemon(pokemon)
     setUserAnswer('')
     setIsCorrect(null)
     setShowResult(false)
     setIsPlaying(false)
     
-    // Auto play slightly delayed
-    setTimeout(() => playSound(pokemon.soundPath), 500)
+    if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+    autoPlayTimerRef.current = setTimeout(() => playSound(pokemon.soundPath), 500)
   }
 
   const playSound = (path: string) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     const audio = new Audio(path)
+    audioRef.current = audio
     setIsPlaying(true)
-    audio.play()
+    audio.play().catch(() => setIsPlaying(false))
     audio.onended = () => setIsPlaying(false)
   }
 
@@ -170,9 +185,12 @@ export default function QuizInputPage() {
         
         {/* Center Column: Visuals */}
         <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 relative overflow-hidden">
-          <header className="mb-8 text-center absolute top-8 z-10">
-             <span className="inline-block px-3 py-1 bg-purple-50 rounded-full text-xs font-bold text-purple-600 uppercase tracking-wider">Expert Mode</span>
+          <header className="mb-8 text-center absolute top-8 z-10 w-full px-8">
+             <span className="inline-block px-3 py-1 bg-purple-50 rounded-full text-xs font-bold text-purple-600 uppercase tracking-wider">{t('quizInput.expertMode')}</span>
              <h1 className="text-2xl font-bold mt-2">{t('quizInput.title')}</h1>
+             <div className="mt-3 flex justify-center">
+               <GenerationSelector value={generation} onChange={handleGenerationChange} />
+             </div>
           </header>
 
           <div className="relative z-10 flex flex-col items-center w-full max-w-2xl">
@@ -195,7 +213,7 @@ export default function QuizInputPage() {
             <div className="w-full h-32 md:h-48 bg-background rounded-xl relative overflow-hidden shadow-inner">
                 {waveformLoading && (
                     <div className="absolute inset-0 flex items-center justify-center text-secondary text-sm">
-                        Loading...
+                        {t('quizInput.loading')}
                     </div>
                 )}
                 <canvas 
@@ -213,7 +231,7 @@ export default function QuizInputPage() {
         {/* Right Column: Input Controls */}
         <div className="flex flex-col justify-center h-full">
           <div className="bg-surface rounded-apple p-6 shadow-float">
-             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Your Answer</h3>
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">{t('quizInput.yourAnswer')}</h3>
              
              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>

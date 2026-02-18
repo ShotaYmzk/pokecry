@@ -14,16 +14,23 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>('ja')
 
   useEffect(() => {
-    // Load language from localStorage or default to Japanese
-    const savedLanguage = localStorage.getItem('pokewav-language') as Language | null
-    if (savedLanguage === 'ja' || savedLanguage === 'en') {
-      setLanguageState(savedLanguage)
+    try {
+      const savedLanguage = localStorage.getItem('pokewav-language') as Language | null
+      if (savedLanguage === 'ja' || savedLanguage === 'en') {
+        setLanguageState(savedLanguage)
+      }
+    } catch {
+      // localStorage unavailable (private browsing, etc.)
     }
   }, [])
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)
-    localStorage.setItem('pokewav-language', lang)
+    try {
+      localStorage.setItem('pokewav-language', lang)
+    } catch {
+      // Storage full or unavailable
+    }
   }
 
   return (

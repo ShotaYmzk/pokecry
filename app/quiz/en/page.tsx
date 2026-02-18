@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
 import { getRandomPokemon, getRandomPokemons, shuffleArray, Pokemon } from '@/lib/pokemon'
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
+import { GenerationSelector } from '@/components/GenerationSelector'
 
 export default function QuizEnPage() {
-  const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
   const [currentPokemon, setCurrentPokemon] = useState<Pokemon | null>(null)
@@ -16,14 +15,27 @@ export default function QuizEnPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
+  const [generation, setGeneration] = useState<number | undefined>(undefined)
 
   useEffect(() => {
     loadNewQuestion()
   }, [])
 
+  const handleGenerationChange = useCallback((gen: number | undefined) => {
+    setGeneration(gen)
+    const pokemon = getRandomPokemon(gen)
+    const wrongChoices = getRandomPokemons(3, pokemon.id, gen)
+    const allChoices = shuffleArray([pokemon, ...wrongChoices])
+    setCurrentPokemon(pokemon)
+    setChoices(allChoices)
+    setSelectedAnswer(null)
+    setIsCorrect(null)
+    setShowResult(false)
+  }, [])
+
   const loadNewQuestion = () => {
-    const pokemon = getRandomPokemon()
-    const wrongChoices = getRandomPokemons(3, pokemon.id)
+    const pokemon = getRandomPokemon(generation)
+    const wrongChoices = getRandomPokemons(3, pokemon.id, generation)
     const allChoices = shuffleArray([pokemon, ...wrongChoices])
     
     setCurrentPokemon(pokemon)
@@ -58,14 +70,17 @@ export default function QuizEnPage() {
         
         {/* Center Column: Question Visual */}
         <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 md:h-full relative overflow-hidden">
-          <header className="mb-8 text-center absolute top-8 z-10">
-             <span className="inline-block px-3 py-1 bg-blue-50 rounded-full text-xs font-bold text-blue-600 uppercase tracking-wider">English Quiz</span>
+          <header className="mb-8 text-center absolute top-8 z-10 w-full px-8">
+             <span className="inline-block px-3 py-1 bg-blue-50 rounded-full text-xs font-bold text-blue-600 uppercase tracking-wider">{t('quizEn.englishQuiz')}</span>
              <h1 className="text-2xl font-bold mt-2">{t('quizEn.title')}</h1>
+             <div className="mt-3 flex justify-center">
+               <GenerationSelector value={generation} onChange={handleGenerationChange} />
+             </div>
           </header>
 
           <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
             <div className="bg-white rounded-apple shadow-float p-10 w-full text-center mb-8">
-                <p className="text-sm text-secondary uppercase tracking-wider mb-2">Japanese Name</p>
+                <p className="text-sm text-secondary uppercase tracking-wider mb-2">{t('quizEn.japaneseName')}</p>
                 <h2 className="text-4xl md:text-5xl font-bold text-primary">{currentPokemon.name}</h2>
             </div>
             <p className="text-secondary font-medium">
@@ -80,7 +95,7 @@ export default function QuizEnPage() {
         {/* Right Column: Controls */}
         <div className="flex flex-col justify-center h-full">
           <div className="bg-surface rounded-apple p-6 shadow-float md:h-auto">
-             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Select English Name</h3>
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">{t('quizEn.selectEnglishName')}</h3>
              <div className="grid grid-cols-1 gap-3">
                 {choices.map((choice) => {
                   const isSelected = selectedAnswer === choice.id

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { POKEMON_LIST, shuffleArray, Pokemon, getPokemonById } from '@/lib/pokemon'
 import { getWeakList, addToWeakList } from '@/lib/storage'
@@ -18,6 +18,8 @@ export default function WeakPage() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const getPokemonName = (pokemon: Pokemon) => {
     return language === 'en' ? pokemon.nameEn : pokemon.name
@@ -29,6 +31,11 @@ export default function WeakPage() {
     
     if (weak.length > 0) {
       loadNewQuestion(weak)
+    }
+
+    return () => {
+      if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     }
   }, [])
 
@@ -51,13 +58,16 @@ export default function WeakPage() {
     setShowResult(false)
     setIsPlaying(false)
     
-    setTimeout(() => playSound(pokemon.soundPath), 500)
+    if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current)
+    autoPlayTimerRef.current = setTimeout(() => playSound(pokemon.soundPath), 500)
   }
 
   const playSound = (path: string) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     const audio = new Audio(path)
+    audioRef.current = audio
     setIsPlaying(true)
-    audio.play()
+    audio.play().catch(() => setIsPlaying(false))
     audio.onended = () => setIsPlaying(false)
   }
 
@@ -112,7 +122,7 @@ export default function WeakPage() {
           <header className="mb-8 text-center absolute top-8 z-10">
              <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 rounded-full mb-2">
                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"/>
-               <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Weak List: {weakList.length}</span>
+               <span className="text-xs font-bold text-red-500 uppercase tracking-wider">{t('weak.weakList')}: {weakList.length}</span>
              </div>
              <h1 className="text-2xl font-bold">{t('weak.title')}</h1>
           </header>
@@ -147,7 +157,7 @@ export default function WeakPage() {
         {/* Right Column: Controls */}
         <div className="flex flex-col justify-center h-full">
           <div className="bg-surface rounded-apple p-6 shadow-float md:h-auto">
-             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Identify Pokemon</h3>
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">{t('weak.identifyPokemon')}</h3>
              <div className="grid grid-cols-1 gap-3">
             {choices.map((choice) => {
               const isSelected = selectedAnswer === choice.id

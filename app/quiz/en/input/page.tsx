@@ -1,20 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getRandomPokemon, Pokemon } from '@/lib/pokemon'
 import { addToWeakList } from '@/lib/storage'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
+import { GenerationSelector } from '@/components/GenerationSelector'
 
 export default function QuizEnInputPage() {
-  const router = useRouter()
   const { language } = useLanguage()
   const t = (key: string) => getTranslation(language, key)
   const [currentPokemon, setCurrentPokemon] = useState<Pokemon | null>(null)
   const [userAnswer, setUserAnswer] = useState('')
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
+  const [generation, setGeneration] = useState<number | undefined>(undefined)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -31,8 +31,17 @@ export default function QuizEnInputPage() {
     return pokemon.nameEn
   }
 
+  const handleGenerationChange = useCallback((gen: number | undefined) => {
+    setGeneration(gen)
+    const pokemon = getRandomPokemon(gen)
+    setCurrentPokemon(pokemon)
+    setUserAnswer('')
+    setIsCorrect(null)
+    setShowResult(false)
+  }, [])
+
   const loadNewQuestion = () => {
-    const pokemon = getRandomPokemon()
+    const pokemon = getRandomPokemon(generation)
     setCurrentPokemon(pokemon)
     setUserAnswer('')
     setIsCorrect(null)
@@ -60,14 +69,17 @@ export default function QuizEnInputPage() {
         
         {/* Center Column: Question Visual */}
         <div className="flex flex-col items-center justify-center bg-surface rounded-apple shadow-sm p-8 md:h-full relative overflow-hidden">
-          <header className="mb-8 text-center absolute top-8 z-10">
-             <span className="inline-block px-3 py-1 bg-blue-50 rounded-full text-xs font-bold text-blue-600 uppercase tracking-wider">English Input</span>
+          <header className="mb-8 text-center absolute top-8 z-10 w-full px-8">
+             <span className="inline-block px-3 py-1 bg-blue-50 rounded-full text-xs font-bold text-blue-600 uppercase tracking-wider">{t('quizEnInput.englishInput')}</span>
              <h1 className="text-2xl font-bold mt-2">{t('quizEnInput.title')}</h1>
+             <div className="mt-3 flex justify-center">
+               <GenerationSelector value={generation} onChange={handleGenerationChange} />
+             </div>
           </header>
 
           <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
              <div className="bg-white rounded-apple shadow-float p-10 w-full text-center mb-8">
-                <p className="text-sm text-secondary uppercase tracking-wider mb-2">Japanese Name</p>
+                <p className="text-sm text-secondary uppercase tracking-wider mb-2">{t('quizEnInput.japaneseName')}</p>
                 <h2 className="text-4xl md:text-5xl font-bold text-primary">{currentPokemon.name}</h2>
             </div>
              <p className="mt-4 text-secondary text-sm">
@@ -79,7 +91,7 @@ export default function QuizEnInputPage() {
         {/* Right Column: Input Controls */}
         <div className="flex flex-col justify-center h-full">
           <div className="bg-surface rounded-apple p-6 shadow-float">
-             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">Your Answer (English)</h3>
+             <h3 className="text-sm font-bold text-secondary mb-4 uppercase tracking-wider">{t('quizEnInput.yourAnswer')}</h3>
              
              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
