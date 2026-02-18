@@ -6,6 +6,7 @@ import { POKEMON_LIST, GENERATIONS, Pokemon } from '@/lib/pokemon'
 import Link from 'next/link'
 import { useLanguage } from '@/lib/LanguageContext'
 import { getTranslation } from '@/lib/i18n'
+import { POKEMON_TYPES, TYPE_COLORS } from '@/lib/pokemon-types'
 
 export default function ListPage() {
   return (
@@ -25,12 +26,25 @@ function ListPageContent() {
   const [selectedPokemon, setSelectedPokemon] = useState<Pokemon | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null)
+  const [gridCols, setGridCols] = useState<3 | 4 | 5>(3)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pokewav-grid-cols')
+    if (saved && [3, 4, 5].includes(Number(saved))) {
+      setGridCols(Number(saved) as 3 | 4 | 5)
+    }
+  }, [])
+
+  const handleGridChange = (cols: 3 | 4 | 5) => {
+    setGridCols(cols)
+    localStorage.setItem('pokewav-grid-cols', String(cols))
+  }
 
   useEffect(() => {
     const genParam = searchParams.get('gen')
     if (genParam) {
       const genId = parseInt(genParam, 10)
-      if ([1, 2, 3, 4, 5].includes(genId)) {
+      if (genId >= 1 && genId <= 9) {
         setSelectedGeneration(genId)
       }
     }
@@ -43,6 +57,16 @@ function ListPageContent() {
 
   const getPokemonName = (pokemon: typeof POKEMON_LIST[0]) => {
     return language === 'en' ? pokemon.nameEn : pokemon.name
+  }
+
+  const getTypeBackground = (pokemonId: string, alpha: string = '40'): string => {
+    const paddedId = pokemonId.padStart(3, '0')
+    const types = POKEMON_TYPES[paddedId]
+    if (!types) return '#F5F5F5'
+    const c1 = TYPE_COLORS[types[0]] + alpha
+    if (types.length === 1 || !types[1]) return c1
+    const c2 = TYPE_COLORS[types[1]] + alpha
+    return `linear-gradient(to right, ${c1} 50%, ${c2} 50%)`
   }
 
   // Helper for Japanese search normalization
@@ -154,10 +178,10 @@ function ListPageContent() {
           </div>
           
           <div className="mb-6 sticky top-0 z-20 bg-surface/80 backdrop-blur-md py-3 px-4 -mx-4 rounded-2xl space-y-3">
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedGeneration(null)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   selectedGeneration === null
                     ? 'bg-black text-white shadow-sm'
                     : 'bg-background text-secondary hover:bg-gray-200'
@@ -169,23 +193,40 @@ function ListPageContent() {
                 <button
                   key={gen.id}
                   onClick={() => setSelectedGeneration(gen.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     selectedGeneration === gen.id
                       ? 'bg-black text-white shadow-sm'
                       : 'bg-background text-secondary hover:bg-gray-200'
                   }`}
                 >
-                  {language === 'en' ? gen.regionEn : gen.region}
+                  {language === 'en' ? `${gen.nameEn} ${gen.regionEn}` : `${gen.name} ${gen.region}`}
                 </button>
               ))}
             </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('list.searchPlaceholder')}
-              className="w-full px-4 py-3 bg-background rounded-xl border-none text-sm focus:ring-2 focus:ring-accent/50 outline-none transition-all"
-            />
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('list.searchPlaceholder')}
+                className="flex-1 px-4 py-3 bg-background rounded-xl border-none text-sm focus:ring-2 focus:ring-accent/50 outline-none transition-all"
+              />
+              <div className="flex md:hidden bg-background rounded-xl overflow-hidden shrink-0">
+                {([3, 4, 5] as const).map((cols) => (
+                  <button
+                    key={cols}
+                    onClick={() => handleGridChange(cols)}
+                    className={`px-2.5 py-3 text-xs font-bold transition-all ${
+                      gridCols === cols
+                        ? 'bg-black text-white'
+                        : 'text-secondary hover:bg-gray-200'
+                    }`}
+                  >
+                    {cols}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {filteredPokemon.length === 0 ? (
@@ -196,7 +237,11 @@ function ListPageContent() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 gap-4 pb-24 md:pb-0">
+            <div className={`grid pb-24 md:pb-0 md:grid-cols-4 md:gap-4 lg:grid-cols-6 ${
+              gridCols === 3 ? 'grid-cols-3 gap-4' :
+              gridCols === 4 ? 'grid-cols-4 gap-2' :
+              'grid-cols-5 gap-1.5'
+            }`}>
               {filteredPokemon.map((pokemon) => {
                 const isSelected = selectedPokemon?.id === pokemon.id;
                 return (
@@ -210,7 +255,10 @@ function ListPageContent() {
                     onTouchStart={() => handleTouchStart(pokemon.id)}
                     onTouchEnd={handleTouchEnd}
                   >
-                    <div className="relative w-full aspect-square bg-background rounded-apple mb-2 flex items-center justify-center transition-transform active:scale-95">
+                    <div
+                      className="relative w-full aspect-square rounded-apple mb-2 flex items-center justify-center transition-transform active:scale-95"
+                      style={{ background: getTypeBackground(pokemon.id) }}
+                    >
                       <img
                         src={pokemon.imagePath}
                         alt={getPokemonName(pokemon)}
@@ -221,8 +269,8 @@ function ListPageContent() {
                         <div className="absolute inset-0 rounded-apple border-2 border-accent animate-pulse" />
                       )}
                     </div>
-                    <p className="text-[10px] text-secondary font-medium">{pokemon.id}</p>
-                    <p className="text-xs font-semibold text-center line-clamp-1">{getPokemonName(pokemon)}</p>
+                    <p className={`text-secondary font-medium ${gridCols >= 5 ? 'text-[8px]' : 'text-[10px]'} md:text-[10px]`}>{pokemon.id}</p>
+                    <p className={`font-semibold text-center line-clamp-1 ${gridCols >= 5 ? 'text-[9px]' : 'text-xs'} md:text-xs`}>{getPokemonName(pokemon)}</p>
                   </div>
                 );
               })}
@@ -235,7 +283,10 @@ function ListPageContent() {
           <div className="sticky top-8 bg-surface rounded-apple p-6 shadow-float h-fit border border-gray-100">
             {selectedPokemon ? (
               <div className="text-center animate-fade-in">
-                 <div className="w-full aspect-square bg-background rounded-apple mb-6 flex items-center justify-center">
+                 <div
+                   className="w-full aspect-square rounded-apple mb-6 flex items-center justify-center"
+                   style={{ background: getTypeBackground(selectedPokemon.id) }}
+                 >
                     <img 
                       src={selectedPokemon.imagePath} 
                       alt={getPokemonName(selectedPokemon)}
@@ -243,7 +294,18 @@ function ListPageContent() {
                     />
                  </div>
                  <h2 className="text-2xl font-bold mb-1">{getPokemonName(selectedPokemon)}</h2>
-                 <p className="text-secondary font-mono mb-6">No. {selectedPokemon.id}</p>
+                 <p className="text-secondary font-mono mb-2">No. {selectedPokemon.id}</p>
+                 <div className="flex justify-center gap-2 mb-6">
+                   {(POKEMON_TYPES[selectedPokemon.id.padStart(3, '0')] || []).map((type) => (
+                     <span
+                       key={type}
+                       className="px-3 py-1 rounded-full text-xs font-bold text-white capitalize"
+                       style={{ backgroundColor: TYPE_COLORS[type] }}
+                     >
+                       {type}
+                     </span>
+                   ))}
+                 </div>
                  
                  <button
                     onClick={() => playSound(selectedPokemon.id, selectedPokemon.soundPath)}
